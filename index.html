@@ -439,6 +439,7 @@ document.getElementById('productForm').addEventListener('submit',async event=>{
   }catch(error){showToast(friendlyError(error));}
 });
 
+
 function renderProducts(){
   if(!activeRoom)return;
   const products=activeRoom.products||[];
@@ -456,22 +457,96 @@ function renderProducts(){
     return;
   }
 
-  box.innerHTML=products.map(p=>`
-    <div class="product ${p.purchased?'bought':''}">
-      <input class="check" type="checkbox" ${p.purchased?'checked':''} onchange="toggleBought('${p.id}',this.checked)">
-      <div class="product-info">
-        <div class="product-name">${escapeHTML(p.name)}</div>
-        <div class="product-detail">${p.quantity} ${escapeHTML(p.unit)} · Valor por unidade</div>
-        <button type="button" onclick="showPriceHistory('${p.id}')" style="background:none;border:0;padding:5px 0;color:#547c45;font-size:12px;cursor:pointer;">
-          Ver histórico de preços
-        </button>
-      </div>
-      <div class="product-price">
-        <input type="number" min="0" step="0.01" placeholder="R$ 0,00" value="${p.unit_price||''}" onchange="updatePrice('${p.id}',this.value)">
-      </div>
-      <button class="delete-item" title="Excluir produto" onclick="deleteProduct('${p.id}')">×</button>
+  box.innerHTML=`
+    <div id="purchaseEstimate" style="background:#edf4e9;padding:16px;border-radius:12px;margin-bottom:14px;">
+      <div style="font-size:13px;color:#547c45;font-weight:600;">ESTIMATIVA DA PRÓXIMA COMPRA</div>
+      <div id="estimateTotal" style="font-size:25px;font-weight:700;color:#17372d;margin:5px 0;">Calculando...</div>
+      <div id="estimateDetails" style="font-size:12px;color:#547c45;">Consultando histórico de preços...</div>
     </div>
-  `).join('');
+    ${products.map(p=>`
+      <div class="product ${p.purchased?'bought':''}">
+        <input class="check" type="checkbox" ${p.purchased?'checked':''} onchange="toggleBought('${p.id}',this.checked)">
+        <div class="product-info">
+          <div class="product-name">${escapeHTML(p.name)}</div>
+          <div class="product-detail">${p.quantity} ${escapeHTML(p.unit)} · Valor por unidade</div>
+          <button type="button" onclick="showPriceHistory('${p.id}')" style="background:none;border:0;padding:5px 0;color:#547c45;font-size:12px;cursor:pointer;">
+            Ver histórico de preços
+          </button>
+        </div>
+        <div class="product-price">
+          <input type="number" min="0" step="0.01" placeholder="R$ 0,00" value="${p.unit_price||''}" onchange="updatePrice('${p.id}',this.value)">
+        </div>
+        <button class="delete-item" title="Excluir produto" onclick="deleteProduct('${p.id}')">×</button>
+      </div>
+    `).join('')}
+  `;
+
+  loadPurchaseEstimate();
+}
+
+async function loadPurchaseEstimate(){
+  if(!activeRoom)return;
+
+  const roomId=activeRoom.id;
+  const products=[...(activeRoom.products||[])];
+
+  const totalElement=document.getElementById('estimateTotal');
+  const detailsElement=document.getElementById('estimateDetails');
+
+  if(!totalElement || !detailsElement)return;
+
+  try{
+    const {data,error}=await db
+      .from('price_history')
+      .select('product_name,unit,unit_price,recorded_at')
+      .eq('room_id',roomId)
+      .order('recorded_at',{ascending:false});
+
+    if(error)throw error;
+
+    if(!document.getElementById('estimateTotal') || !activeRoom || activeRoom.id!==roomId)return;
+
+    const latestPrices=new Map();
+
+    (data||[]).forEach(item=>{
+      const key=item.product_name.trim().toLowerCase()+'|'+item.unit.trim().toLowerCase();
+
+      if(!latestPrices.has(key)){
+        latestPrices.set(key,Number(item.unit_price));
+      }
+    });
+
+    let estimatedTotal=0;
+    let found=0;
+    let missing=0;
+
+    products.forEach(product=>{
+      const key=product.name.trim().toLowerCase()+'|'+product.unit.trim().toLowerCase();
+      const price=latestPrices.get(key);
+
+      if(price!==undefined && Number.isFinite(price)){
+        estimatedTotal+=price*(Number(product.quantity)||1);
+        found++;
+      }else{
+        missing++;
+      }
+    });
+
+    totalElement.textContent=money(estimatedTotal);
+
+    if(found===0){
+      detailsElement.textContent='Ainda não há preços registrados para estimar sua compra.';
+    }else if(missing>0){
+      detailsElement.textContent=found+' produto(s) com histórico · '+missing+' sem histórico.';
+    }else{
+      detailsElement.textContent='Estimativa baseada no último preço registrado de todos os produtos.';
+    }
+
+  }catch(error){
+    totalElement.textContent='Indisponível';
+    detailsElement.textContent='Não foi possível consultar os preços anteriores.';
+    console.error('Erro na estimativa:',error);
+  }
 }
 
 
