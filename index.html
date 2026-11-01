@@ -1,0 +1,541 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#17372d">
+<title>Listaê | Suas compras organizadas</title>
+<style>
+:root{
+  --green:#17372d;
+  --green2:#245440;
+  --lime:#c3f477;
+  --bg:#f5f7f3;
+  --white:#fff;
+  --text:#202820;
+  --muted:#7c887e;
+  --line:#e8ece6;
+  --red:#dc6464;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+button,input{font:inherit}
+button{cursor:pointer}
+.app{max-width:1100px;margin:auto;padding:24px}
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 0 28px;
+}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{
+  width:43px;height:43px;border-radius:14px;background:var(--lime);
+  display:grid;place-items:center;font-size:23px;
+}
+.brand-name{font-size:25px;font-weight:850;letter-spacing:-1.2px}
+.brand-name span{color:#53824e}
+.header-tag{font-size:12px;color:var(--muted)}
+.hero{
+  background:var(--green);color:white;border-radius:24px;
+  padding:34px;position:relative;overflow:hidden;
+}
+.hero:after{
+  content:"🛒";position:absolute;right:35px;top:30px;
+  font-size:95px;opacity:.13;transform:rotate(-12deg)
+}
+.hero small{color:var(--lime);font-weight:800;letter-spacing:2px}
+.hero h1{font-size:clamp(27px,5vw,42px);max-width:550px;
+  line-height:1.12;margin:13px 0}
+.hero p{color:#c8d8ce;max-width:470px;line-height:1.6;margin:0}
+.actions{
+  display:grid;grid-template-columns:1fr 1fr;gap:14px;
+  margin:22px 0 32px;
+}
+.action{
+  border:1px solid var(--line);background:white;border-radius:17px;
+  padding:20px;text-align:left;display:flex;align-items:center;gap:15px;
+  transition:.2s;
+}
+.action:hover{transform:translateY(-2px);border-color:#b7d69b}
+.action-icon{
+  width:48px;height:48px;display:grid;place-items:center;
+  border-radius:14px;background:#eff7e7;font-size:24px;flex-shrink:0
+}
+.action strong{display:block;font-size:15px}
+.action small{display:block;color:var(--muted);margin-top:5px}
+.section-head{display:flex;justify-content:space-between;align-items:center;margin:0 0 14px}
+.section-head h2{font-size:19px;margin:0}
+.count{font-size:12px;color:var(--muted)}
+.rooms{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.room{
+  background:white;border:1px solid var(--line);border-radius:17px;
+  padding:19px;cursor:pointer;transition:.2s;
+}
+.room:hover{border-color:#9fbe8d;transform:translateY(-2px)}
+.room-top{display:flex;justify-content:space-between;align-items:center}
+.room-icon{
+  width:43px;height:43px;border-radius:13px;background:#eff7e7;
+  display:grid;place-items:center;font-size:22px
+}
+.room h3{margin:14px 0 5px;font-size:17px}
+.room-meta{color:var(--muted);font-size:12px}
+.room-bottom{display:flex;justify-content:space-between;align-items:center;
+  border-top:1px solid var(--line);padding-top:14px;margin-top:16px}
+.room-total{font-size:18px;font-weight:800;color:var(--green)}
+.empty{
+  background:white;border:1px dashed #d5ded2;border-radius:17px;
+  padding:38px 20px;text-align:center;color:var(--muted);
+  grid-column:1/-1;
+}
+.empty-icon{font-size:35px;margin-bottom:10px}
+.empty strong{display:block;color:var(--text);margin-bottom:6px}
+footer{text-align:center;color:#9aa39a;font-size:11px;padding:35px 0 15px}
+.hidden{display:none!important}
+
+/* Modal */
+.overlay{
+  position:fixed;inset:0;background:#101b16a6;z-index:10;
+  display:grid;place-items:center;padding:16px;
+}
+.modal{
+  background:white;width:100%;max-width:440px;border-radius:21px;
+  padding:25px;max-height:90vh;overflow:auto;
+}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.modal h2{margin:0;font-size:21px}
+.close{
+  border:0;background:#f0f2ef;border-radius:10px;width:34px;height:34px;
+  font-size:19px;color:#59645b
+}
+.field{margin-bottom:15px}
+.field label{display:block;font-size:12px;font-weight:750;margin-bottom:7px}
+.field input{
+  width:100%;padding:13px;border:1px solid #dce3da;
+  border-radius:11px;outline:none;background:white;
+}
+.field input:focus{border-color:#6d9b60}
+.primary{
+  background:var(--green);color:white;border:0;border-radius:11px;
+  padding:14px 18px;font-weight:750;width:100%;
+}
+.primary:hover{background:var(--green2)}
+.secondary{
+  background:#eff3ec;color:var(--green);border:0;border-radius:10px;
+  padding:11px 14px;font-weight:700;
+}
+.danger{background:#fff0f0;color:#b64d4d}
+.note{font-size:11px;color:var(--muted);line-height:1.5;margin-top:12px}
+.error{font-size:12px;color:#c34b4b;margin:8px 0}
+
+/* Lista */
+.back{
+  background:none;border:0;color:var(--green);font-weight:750;
+  padding:8px 0;margin-bottom:17px
+}
+.list-header{
+  background:var(--green);color:white;border-radius:20px;padding:24px;
+}
+.list-header-top{display:flex;justify-content:space-between;align-items:center}
+.list-header h1{margin:13px 0 5px;font-size:27px}
+.list-header p{color:#cbd9d0;font-size:13px;margin:0}
+.code{font-size:11px;color:var(--lime);font-weight:800;letter-spacing:1px}
+.total-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}
+.total-card{background:white;border:1px solid var(--line);border-radius:15px;padding:16px}
+.total-card small{color:var(--muted);font-size:11px}
+.total-card strong{display:block;font-size:23px;margin-top:6px;color:var(--green)}
+.add-box{background:white;border:1px solid var(--line);border-radius:16px;padding:17px;margin-bottom:16px}
+.add-box h3{margin:0 0 13px;font-size:15px}
+.add-fields{display:grid;grid-template-columns:2fr 1fr 1fr;gap:9px}
+.add-fields input{
+  width:100%;min-width:0;padding:12px;border:1px solid #dce3da;
+  border-radius:10px;outline:none
+}
+.add-fields button{grid-column:1/-1}
+.items-box{background:white;border:1px solid var(--line);border-radius:16px;padding:17px}
+.items-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.items-head h3{margin:0;font-size:15px}
+.product{
+  display:flex;align-items:center;gap:11px;padding:13px 0;
+  border-bottom:1px solid var(--line);
+}
+.product:last-child{border-bottom:0}
+.check{
+  width:22px;height:22px;accent-color:#4c8852;flex-shrink:0;
+}
+.product-info{flex:1;min-width:0}
+.product-name{font-size:14px;font-weight:700;overflow-wrap:anywhere}
+.product-detail{font-size:11px;color:var(--muted);margin-top:4px}
+.product-price{text-align:right;font-size:14px;font-weight:800;white-space:nowrap}
+.product-price input{
+  width:92px;text-align:right;padding:7px;border:1px solid #dce3da;
+  border-radius:8px;font-weight:750
+}
+.bought .product-name{text-decoration:line-through;color:#929b91}
+.bought .product-info{opacity:.65}
+.delete-item{
+  border:0;background:none;color:#b7bdb7;font-size:17px;padding:5px
+}
+.delete-item:hover{color:var(--red)}
+.list-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}
+.list-tools button{flex:1;min-width:120px}
+.toast{
+  position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
+  background:#193b2e;color:white;padding:12px 19px;border-radius:12px;
+  font-size:13px;z-index:30;box-shadow:0 5px 25px #0002
+}
+@media(max-width:650px){
+  .app{padding:16px}
+  header{padding:7px 0 20px}
+  .header-tag{display:none}
+  .hero{padding:25px 22px}
+  .hero:after{right:15px;top:20px;font-size:65px}
+  .actions{gap:9px}
+  .action{padding:13px;gap:9px;align-items:flex-start}
+  .action-icon{width:38px;height:38px;font-size:19px}
+  .action small{font-size:10px}
+  .rooms{grid-template-columns:1fr}
+  .add-fields{grid-template-columns:1fr 1fr}
+  .add-fields input:first-child{grid-column:1/-1}
+  .total-card strong{font-size:20px}
+}
+</style>
+</head>
+<body>
+<div class="app" id="home">
+  <header>
+    <div class="brand">
+      <div class="logo">🛒</div>
+      <div class="brand-name">Lista<span>ê</span></div>
+    </div>
+    <div class="header-tag">COMPRAR · COMPARTILHAR · ECONOMIZAR</div>
+  </header>
+
+  <section class="hero">
+    <small>ORGANIZE SUAS COMPRAS</small>
+    <h1>Sua próxima compra começa aqui.</h1>
+    <p>Crie listas, compartilhe com quem quiser e acompanhe seus gastos em um só lugar.</p>
+  </section>
+
+  <section class="actions">
+    <button class="action" onclick="openModal('create')">
+      <span class="action-icon">＋</span>
+      <span><strong>Criar uma sala</strong><small>Comece uma nova lista de compras</small></span>
+    </button>
+    <button class="action" onclick="openModal('join')">
+      <span class="action-icon">🔑</span>
+      <span><strong>Entrar em uma sala</strong><small>Use o código e a senha de convite</small></span>
+    </button>
+  </section>
+
+  <div class="section-head">
+    <h2>Minhas salas</h2>
+    <span class="count" id="roomCount">0 salas</span>
+  </div>
+  <section class="rooms" id="rooms"></section>
+  <footer>Listaê © 2026 · Suas compras mais organizadas.</footer>
+</div>
+
+<div class="app hidden" id="listScreen">
+  <button class="back" onclick="goHome()">← Voltar para minhas salas</button>
+  <section class="list-header">
+    <div class="list-header-top">
+      <span class="code" id="roomCode"></span>
+      <button class="secondary" onclick="shareRoom()">Compartilhar</button>
+    </div>
+    <h1 id="roomTitle"></h1>
+    <p>Organize os produtos e acompanhe o valor da compra.</p>
+  </section>
+
+  <section class="total-grid">
+    <div class="total-card">
+      <small>VALOR DA COMPRA</small>
+      <strong id="total">R$ 0,00</strong>
+    </div>
+    <div class="total-card">
+      <small>PRODUTOS COMPRADOS</small>
+      <strong id="progress">0 de 0</strong>
+    </div>
+  </section>
+
+  <section class="add-box">
+    <h3>＋ Adicionar produto</h3>
+    <form id="productForm" class="add-fields">
+      <input id="productName" placeholder="Nome do produto" required>
+      <input id="productQty" type="number" min="0.01" step="any" value="1" placeholder="Qtd.">
+      <input id="productUnit" placeholder="Unidade" value="un." >
+      <button class="primary" type="submit">Adicionar à lista</button>
+    </form>
+  </section>
+
+  <section class="items-box">
+    <div class="items-head">
+      <h3>Produtos da lista</h3>
+      <span class="count" id="itemCount">0 itens</span>
+    </div>
+    <div id="products"></div>
+    <div class="list-tools">
+      <button class="secondary" onclick="shareRoom()">Compartilhar sala</button>
+      <button class="secondary danger" onclick="deleteRoom()">Excluir sala</button>
+    </div>
+  </section>
+</div>
+
+<div class="overlay hidden" id="overlay" onclick="overlayClick(event)">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="modalTitle">Criar sala</h2>
+      <button class="close" onclick="closeModal()">×</button>
+    </div>
+    <div id="modalContent"></div>
+  </div>
+</div>
+<div id="toast" class="toast hidden"></div>
+
+<script>
+const STORAGE_KEY = 'listae_v1';
+let rooms = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+let activeRoom = null;
+let toastTimer;
+
+function save(){
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(rooms));
+}
+function money(value){
+  return Number(value||0).toLocaleString('pt-BR',{
+    style:'currency',currency:'BRL'
+  });
+}
+function escapeHTML(value){
+  return String(value).replace(/[&<>"']/g,c=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+function makeCode(){
+  return Math.random().toString(36).substring(2,8).toUpperCase();
+}
+function showToast(message){
+  const el=document.getElementById('toast');
+  el.textContent=message;
+  el.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.add('hidden'),2500);
+}
+function renderRooms(){
+  const box=document.getElementById('rooms');
+  document.getElementById('roomCount').textContent=
+    rooms.length+' '+(rooms.length===1?'sala':'salas');
+
+  if(!rooms.length){
+    box.innerHTML=`
+      <div class="empty">
+        <div class="empty-icon">🛍️</div>
+        <strong>Você ainda não tem salas.</strong>
+        Crie sua primeira sala e comece a organizar suas compras!
+      </div>`;
+    return;
+  }
+  box.innerHTML=rooms.map(room=>{
+    const total=room.products.reduce((sum,p)=>sum+(Number(p.price)||0)*(Number(p.qty)||1),0);
+    return `
+      <article class="room" onclick="openRoom('${room.id}')">
+        <div class="room-top">
+          <div class="room-icon">🛒</div>
+          <span class="count">${room.products.length} produtos</span>
+        </div>
+        <h3>${escapeHTML(room.name)}</h3>
+        <div class="room-meta">Código: ${room.code}</div>
+        <div class="room-bottom">
+          <span class="count">Total registrado</span>
+          <span class="room-total">${money(total)}</span>
+        </div>
+      </article>`;
+  }).join('');
+}
+function openModal(type){
+  const content=document.getElementById('modalContent');
+  document.getElementById('modalTitle').textContent=
+    type==='create'?'Criar nova sala':'Entrar em uma sala';
+
+  if(type==='create'){
+    content.innerHTML=`
+      <form id="roomForm">
+        <div class="field">
+          <label>Nome da sala</label>
+          <input id="newRoomName" placeholder="Ex.: Compras de casa" required maxlength="45">
+        </div>
+        <div class="field">
+          <label>Senha da sala</label>
+          <input id="newRoomPassword" type="password" placeholder="Crie uma senha" required minlength="4">
+        </div>
+        <button class="primary">Criar minha sala</button>
+        <p class="note">Nesta versão inicial, as salas ficam salvas apenas neste navegador. O compartilhamento real será ativado quando conectarmos o banco de dados.</p>
+      </form>`;
+    document.getElementById('roomForm').onsubmit=createRoom;
+  }else{
+    content.innerHTML=`
+      <form id="joinForm">
+        <div class="field">
+          <label>Código da sala</label>
+          <input id="joinCode" placeholder="Ex.: A2B3C4" required>
+        </div>
+        <div class="field">
+          <label>Senha da sala</label>
+          <input id="joinPassword" type="password" placeholder="Digite a senha" required>
+        </div>
+        <button class="primary">Entrar na sala</button>
+        <p class="note">A entrada compartilhada entre dispositivos será habilitada na próxima etapa.</p>
+      </form>`;
+    document.getElementById('joinForm').onsubmit=joinRoom;
+  }
+  document.getElementById('overlay').classList.remove('hidden');
+}
+function closeModal(){
+  document.getElementById('overlay').classList.add('hidden');
+}
+function overlayClick(event){
+  if(event.target.id==='overlay')closeModal();
+}
+function createRoom(event){
+  event.preventDefault();
+  const name=document.getElementById('newRoomName').value.trim();
+  const password=document.getElementById('newRoomPassword').value;
+  if(password.length<4){showToast('A senha precisa ter pelo menos 4 caracteres.');return;}
+
+  let code=makeCode();
+  while(rooms.some(r=>r.code===code))code=makeCode();
+
+  const room={
+    id:Date.now().toString(),
+    name,password,code,products:[],
+    createdAt:new Date().toISOString()
+  };
+  rooms.push(room);
+  save();
+  closeModal();
+  renderRooms();
+  openRoom(room.id);
+  showToast('Sala criada com sucesso!');
+}
+function joinRoom(event){
+  event.preventDefault();
+  const code=document.getElementById('joinCode').value.trim().toUpperCase();
+  const password=document.getElementById('joinPassword').value;
+  const room=rooms.find(r=>r.code===code);
+  if(!room){showToast('Sala não encontrada neste navegador.');return;}
+  if(room.password!==password){showToast('Senha incorreta.');return;}
+  closeModal();
+  openRoom(room.id);
+}
+function openRoom(id){
+  activeRoom=rooms.find(r=>r.id===id);
+  if(!activeRoom)return;
+  document.getElementById('home').classList.add('hidden');
+  document.getElementById('listScreen').classList.remove('hidden');
+  document.getElementById('roomTitle').textContent=activeRoom.name;
+  document.getElementById('roomCode').textContent='CÓDIGO: '+activeRoom.code;
+  renderProducts();
+}
+function goHome(){
+  activeRoom=null;
+  document.getElementById('listScreen').classList.add('hidden');
+  document.getElementById('home').classList.remove('hidden');
+  renderRooms();
+}
+document.getElementById('productForm').onsubmit=function(event){
+  event.preventDefault();
+  if(!activeRoom)return;
+  const name=document.getElementById('productName').value.trim();
+  const qty=Number(document.getElementById('productQty').value);
+  const unit=document.getElementById('productUnit').value.trim()||'un.';
+  if(!name||qty<=0)return;
+
+  activeRoom.products.push({
+    id:Date.now().toString(),
+    name,qty,unit,price:0,bought:false
+  });
+  save();
+  this.reset();
+  document.getElementById('productQty').value=1;
+  document.getElementById('productUnit').value='un.';
+  renderProducts();
+  showToast('Produto adicionado!');
+};
+function renderProducts(){
+  if(!activeRoom)return;
+  const products=activeRoom.products;
+  const total=products.reduce((sum,p)=>sum+(Number(p.price)||0)*(Number(p.qty)||1),0);
+  const bought=products.filter(p=>p.bought).length;
+
+  document.getElementById('total').textContent=money(total);
+  document.getElementById('progress').textContent=bought+' de '+products.length;
+  document.getElementById('itemCount').textContent=
+    products.length+' '+(products.length===1?'item':'itens');
+
+  const box=document.getElementById('products');
+  if(!products.length){
+    box.innerHTML='<div class="empty">Sua lista está vazia. Adicione seu primeiro produto!</div>';
+    return;
+  }
+  box.innerHTML=products.map(p=>`
+    <div class="product ${p.bought?'bought':''}">
+      <input class="check" type="checkbox" ${p.bought?'checked':''}
+        onchange="toggleBought('${p.id}',this.checked)">
+      <div class="product-info">
+        <div class="product-name">${escapeHTML(p.name)}</div>
+        <div class="product-detail">${p.qty} ${escapeHTML(p.unit)} · Valor por unidade</div>
+      </div>
+      <div class="product-price">
+        <input type="number" min="0" step="0.01" placeholder="R$ 0,00"
+          value="${p.price||''}" onchange="updatePrice('${p.id}',this.value)">
+      </div>
+      <button class="delete-item" title="Excluir produto"
+        onclick="deleteProduct('${p.id}')">×</button>
+    </div>`).join('');
+}
+function toggleBought(id,value){
+  const p=activeRoom.products.find(x=>x.id===id);
+  if(!p)return;
+  p.bought=value;
+  save();
+  renderProducts();
+}
+function updatePrice(id,value){
+  const p=activeRoom.products.find(x=>x.id===id);
+  if(!p)return;
+  p.price=Math.max(0,Number(value)||0);
+  save();
+  renderProducts();
+}
+function deleteProduct(id){
+  if(!confirm('Deseja excluir este produto?'))return;
+  activeRoom.products=activeRoom.products.filter(p=>p.id!==id);
+  save();
+  renderProducts();
+  showToast('Produto removido.');
+}
+function deleteRoom(){
+  if(!confirm('Tem certeza que deseja excluir esta sala e seus produtos?'))return;
+  rooms=rooms.filter(r=>r.id!==activeRoom.id);
+  save();
+  goHome();
+  showToast('Sala excluída.');
+}
+function shareRoom(){
+  const text='Minha sala no Listaê: '+activeRoom.name+
+    '\nCódigo: '+activeRoom.code+
+    '\nA senha deve ser compartilhada separadamente.';
+  if(navigator.share){
+    navigator.share({title:'Listaê - '+activeRoom.name,text}).catch(()=>{});
+  }else if(navigator.clipboard){
+    navigator.clipboard.writeText(text).then(()=>showToast('Código copiado!'));
+  }else{
+    showToast('Código da sala: '+activeRoom.code);
+  }
+}
+renderRooms();
+</script>
+</body>
+</html>
