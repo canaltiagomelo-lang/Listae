@@ -438,25 +438,88 @@ document.getElementById('productForm').addEventListener('submit',async event=>{
     await refreshProducts();await loadRooms();showToast('Produto adicionado!');
   }catch(error){showToast(friendlyError(error));}
 });
+
 function renderProducts(){
   if(!activeRoom)return;
   const products=activeRoom.products||[];
   const total=products.reduce((s,p)=>s+(Number(p.unit_price)||0)*(Number(p.quantity)||1),0);
   const bought=products.filter(p=>p.purchased).length;
+
   document.getElementById('total').textContent=money(total);
   document.getElementById('progress').textContent=bought+' de '+products.length;
   document.getElementById('itemCount').textContent=products.length+' '+(products.length===1?'item':'itens');
+
   const box=document.getElementById('products');
-  if(!products.length){box.innerHTML='<div class="empty">Sua lista está vazia. Adicione seu primeiro produto!</div>';return;}
+
+  if(!products.length){
+    box.innerHTML='<div class="empty">Sua lista está vazia. Adicione seu primeiro produto!</div>';
+    return;
+  }
+
   box.innerHTML=products.map(p=>`
     <div class="product ${p.purchased?'bought':''}">
       <input class="check" type="checkbox" ${p.purchased?'checked':''} onchange="toggleBought('${p.id}',this.checked)">
-      <div class="product-info"><div class="product-name">${escapeHTML(p.name)}</div>
-      <div class="product-detail">${p.quantity} ${escapeHTML(p.unit)} · Valor por unidade</div></div>
-      <div class="product-price"><input type="number" min="0" step="0.01" placeholder="R$ 0,00" value="${p.unit_price||''}" onchange="updatePrice('${p.id}',this.value)"></div>
+      <div class="product-info">
+        <div class="product-name">${escapeHTML(p.name)}</div>
+        <div class="product-detail">${p.quantity} ${escapeHTML(p.unit)} · Valor por unidade</div>
+        <button type="button" onclick="showPriceHistory('${p.id}')" style="background:none;border:0;padding:5px 0;color:#547c45;font-size:12px;cursor:pointer;">
+          Ver histórico de preços
+        </button>
+      </div>
+      <div class="product-price">
+        <input type="number" min="0" step="0.01" placeholder="R$ 0,00" value="${p.unit_price||''}" onchange="updatePrice('${p.id}',this.value)">
+      </div>
       <button class="delete-item" title="Excluir produto" onclick="deleteProduct('${p.id}')">×</button>
-    </div>`).join('');
+    </div>
+  `).join('');
 }
+
+async function showPriceHistory(id){
+  const product=activeRoom.products.find(p=>p.id===id);
+  if(!product)return;
+
+  document.getElementById('modalTitle').textContent='Histórico de preços';
+
+  const content=document.getElementById('modalContent');
+  content.innerHTML='<div class="empty">Carregando histórico...</div>';
+  document.getElementById('overlay').classList.remove('hidden');
+
+  try{
+    const {data,error}=await db
+      .from('price_history')
+      .select('unit_price,recorded_at')
+      .eq('room_id',activeRoom.id)
+      .eq('product_name',product.name)
+      .eq('unit',product.unit)
+      .order('recorded_at',{ascending:false})
+      .limit(20);
+
+    if(error)throw error;
+
+    if(!data || !data.length){
+      content.innerHTML='<div class="empty">Ainda não existem preços registrados para este produto.</div>';
+      return;
+    }
+
+    content.innerHTML=`
+      <div style="margin-bottom:14px;font-weight:600;">
+        ${escapeHTML(product.name)}
+      </div>
+      ${data.map(item=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #e5e5e5;">
+          <span style="font-size:13px;color:#777;">
+            ${new Date(item.recorded_at).toLocaleString('pt-BR')}
+          </span>
+          <strong>${money(item.unit_price)}</strong>
+        </div>
+      `).join('')}
+    `;
+  }catch(error){
+    content.innerHTML='<div class="empty">Não foi possível carregar o histórico.</div>';
+    showToast(friendlyError(error));
+  }
+}
+
 async function toggleBought(id,value){
   const {error}=await db.from('products').update({purchased:value}).eq('id',id);
   if(error)showToast(friendlyError(error));else await refreshProducts();
