@@ -186,6 +186,7 @@ let activeRoom = null;
 let toastTimer;
 let authMode = 'login';
 let realtimeChannel = null;
+let invitePromptShown = false;
 
 function money(value){
   return Number(value||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
@@ -303,11 +304,11 @@ function openModal(type){
   document.getElementById('modalTitle').textContent=type==='create'?'Criar nova sala':'Entrar em uma sala';
   const content=document.getElementById('modalContent');
   if(type==='create'){
-    content.innerHTML=`<form id="roomForm">
-      <div class="field"><label>Nome da sala</label><input id="newRoomName" required maxlength="45" placeholder="Ex.: Compras de casa"></div>
-      <div class="field"><label>Senha da sala</label><input id="newRoomPassword" type="password" required minlength="4" placeholder="Crie uma senha"></div>
-      <button class="primary">Criar minha sala</button>
-      <p class="note">Compartilhe o código e a senha com as pessoas que participarão da sala.</p>
+    const inviteCode = new URLSearchParams(window.location.search).get('sala') || '';
+content.innerHTML=`<form id="joinForm">
+      <div class="field"><label>Código da sala</label><input id="joinCode" required placeholder="Ex.: A2B3C4" value="${escapeHTML(inviteCode.toUpperCase())}"></div>
+      <div class="field"><label>Senha da sala</label><input id="joinPassword" type="password" required placeholder="Digite a senha"></div>
+      <button class="primary">Entrar na sala</button>
     </form>`;
     document.getElementById('roomForm').onsubmit=createRoom;
   }else{
@@ -354,7 +355,13 @@ async function joinRoom(event){
     const {data,error}=await db.rpc('join_room',{p_invite_code:code,p_password:password});
     if(error)throw error;
     await ensureList(data);
-    closeModal();await loadRooms();await openRoom(data);
+
+const url = new URL(window.location.href);
+url.searchParams.delete('sala');
+window.history.replaceState({}, '', url);
+invitePromptShown = true;
+
+closeModal();await loadRooms();await openRoom(data);
     showToast('Você entrou na sala!');
   }catch(error){showToast(friendlyError(error));}
 }
@@ -459,11 +466,39 @@ async function deleteRoom(){
 }
 async function shareRoom(){
   if(!activeRoom)return;
-  const text='Minha sala no Listaê: '+activeRoom.name+'\nCódigo: '+activeRoom.invite_code+'\nPeça a senha ao administrador da sala.';
+
+  const link = window.location.origin + window.location.pathname +
+    '?sala=' + encodeURIComponent(activeRoom.invite_code);
+
+  const text = 'Entre na minha sala do Listaê: ' + activeRoom.name +
+    '\n\nLink de convite: ' + link +
+    '\n\nCódigo: ' + activeRoom.invite_code +
+    '\n\nPeça a senha ao administrador da sala.';
+
   try{
-    if(navigator.share)await navigator.share({title:'Listaê - '+activeRoom.name,text});
-    else{await navigator.clipboard.writeText(text);showToast('Convite copiado!');}
-  }catch(error){}
+    if(navigator.share){
+      await navigator.share({
+        title:'Listaê - '+activeRoom.name,
+        text,
+        url:link
+      });
+    }else if(navigator.clipboard){
+      await navigator.clipboard.writeText(link);
+      showToast('Link da sala copiado! Envie pelo WhatsApp.');
+    }else{
+      const area=document.createElement('textarea');
+      area.value=link;
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand('copy');
+      area.remove();
+      showToast('Link da sala copiado!');
+    }
+  }catch(error){
+    if(error.name!=='AbortError'){
+      showToast('Não foi possível compartilhar o link.');
+    }
+  }
 }
 function subscribeRoom(){
   if(realtimeChannel)db.removeChannel(realtimeChannel);
@@ -483,7 +518,14 @@ async function handleSession(session){
   }
   document.getElementById('accountEmail').textContent=currentUser.email||'Conta conectada';
   showScreen('home');
-  await loadRooms();
+await loadRooms();
+
+const inviteCode = new URLSearchParams(window.location.search).get('sala');
+
+if(inviteCode && !invitePromptShown){
+  invitePromptShown = true;
+  openModal('join');
+}
 }
 db.auth.onAuthStateChange((event,session)=>{
   setTimeout(()=>handleSession(session),0);
