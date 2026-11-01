@@ -184,7 +184,6 @@ footer{text-align:center;color:#9aa39a;font-size:11px;padding:35px 0 15px}
     </button>
   </form>
 </section>
-
 <section class="items-box">
   <div class="items-head"><h3>Produtos da lista</h3><span class="count" id="itemCount">0 itens</span></div>
   <div id="products"></div>
