@@ -474,6 +474,7 @@ function renderProducts(){
   `).join('');
 }
 
+
 async function showPriceHistory(id){
   const product=activeRoom.products.find(p=>p.id===id);
   if(!product)return;
@@ -501,14 +502,53 @@ async function showPriceHistory(id){
       return;
     }
 
+    const prices=data.map(item=>Number(item.unit_price));
+    const latest=prices[0];
+    const previous=prices.length>1?prices[1]:null;
+    const lowest=Math.min(...prices);
+
+    let variation='Ainda sem comparação';
+    let variationColor='#777';
+
+    if(previous!==null && previous>0){
+      const percent=((latest-previous)/previous)*100;
+      variation=(percent>0?'+':'')+percent.toFixed(1).replace('.',',')+'%';
+      variationColor=percent>0?'#c0392b':percent<0?'#27834a':'#777';
+    }
+
     content.innerHTML=`
-      <div style="margin-bottom:14px;font-weight:600;">
+      <div style="margin-bottom:16px;font-weight:600;">
         ${escapeHTML(product.name)}
       </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;">
+        <div style="background:#f3f5f2;padding:12px;border-radius:10px;">
+          <div style="font-size:12px;color:#777;">Último preço</div>
+          <strong style="font-size:18px;">${money(latest)}</strong>
+        </div>
+
+        <div style="background:#f3f5f2;padding:12px;border-radius:10px;">
+          <div style="font-size:12px;color:#777;">Preço anterior</div>
+          <strong style="font-size:18px;">${previous!==null?money(previous):'—'}</strong>
+        </div>
+
+        <div style="background:#f3f5f2;padding:12px;border-radius:10px;">
+          <div style="font-size:12px;color:#777;">Variação</div>
+          <strong style="font-size:18px;color:${variationColor};">${variation}</strong>
+        </div>
+
+        <div style="background:#f3f5f2;padding:12px;border-radius:10px;">
+          <div style="font-size:12px;color:#777;">Menor preço</div>
+          <strong style="font-size:18px;">${money(lowest)}</strong>
+        </div>
+      </div>
+
+      <div style="font-weight:600;margin-bottom:8px;">Registros anteriores</div>
+
       ${data.map(item=>`
         <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #e5e5e5;">
           <span style="font-size:13px;color:#777;">
-            ${new Date(item.recorded_at).toLocaleString('pt-BR')}
+            ${new Date(item.recorded_at).toLocaleDateString('pt-BR')}
           </span>
           <strong>${money(item.unit_price)}</strong>
         </div>
@@ -519,6 +559,7 @@ async function showPriceHistory(id){
     showToast(friendlyError(error));
   }
 }
+
 
 async function toggleBought(id,value){
   const {error}=await db.from('products').update({purchased:value}).eq('id',id);
