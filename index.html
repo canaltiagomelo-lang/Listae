@@ -628,7 +628,73 @@ async function loadPurchaseEstimate(){
 
 
 
+function editProduct(id){
+  const product=activeRoom.products.find(p=>p.id===id);
+  if(!product)return;
 
+  document.getElementById('modalTitle').textContent='Editar produto';
+
+  document.getElementById('modalContent').innerHTML=`
+    <form id="editProductForm">
+      <div class="field">
+        <label>Nome do produto</label>
+        <input id="editName" value="${escapeHTML(product.name)}" required>
+      </div>
+
+      <div class="field">
+        <label>Quantidade</label>
+        <input id="editQuantity" type="number" min="0.01" step="any" value="${product.quantity}" required>
+      </div>
+
+      <div class="field">
+        <label>Unidade</label>
+        <input id="editUnit" value="${escapeHTML(product.unit)}" required>
+      </div>
+
+      <div class="field">
+        <label>Tipo de preço</label>
+        <select id="editPriceMode" style="width:100%;padding:13px;border:1px solid #dce3da;border-radius:11px;background:white;">
+          <option value="total" ${product.price_mode==='total'?'selected':''}>Preço total da quantidade</option>
+          <option value="unit" ${product.price_mode!=='total'?'selected':''}>Preço por unidade</option>
+        </select>
+      </div>
+
+      <button class="primary" type="submit">Salvar alterações</button>
+    </form>
+  `;
+
+  document.getElementById('overlay').classList.remove('hidden');
+
+  document.getElementById('editProductForm').onsubmit=async event=>{
+    event.preventDefault();
+
+    const name=document.getElementById('editName').value.trim();
+    const quantity=Number(document.getElementById('editQuantity').value);
+    const unit=document.getElementById('editUnit').value.trim();
+    const price_mode=document.getElementById('editPriceMode').value;
+
+    if(!name||quantity<=0||!unit){
+      showToast('Confira os dados do produto.');
+      return;
+    }
+
+    try{
+      const {error}=await db.from('products')
+        .update({name,quantity,unit,price_mode})
+        .eq('id',id);
+
+      if(error)throw error;
+
+      closeModal();
+      await refreshProducts();
+      await loadRooms();
+      showToast('Produto atualizado!');
+    }catch(error){
+      showToast(friendlyError(error));
+    }
+  };
+}
+  
 async function showPriceHistory(id){
   const product=activeRoom.products.find(p=>p.id===id);
   if(!product)return;
