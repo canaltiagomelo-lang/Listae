@@ -300,27 +300,53 @@ function renderRooms(){
     </article>`;
   }).join('');
 }
+
 function openModal(type){
-  document.getElementById('modalTitle').textContent=type==='create'?'Criar nova sala':'Entrar em uma sala';
-  const content=document.getElementById('modalContent');
-  if(type==='create'){
-    const inviteCode = new URLSearchParams(window.location.search).get('sala') || '';
-content.innerHTML=`<form id="joinForm">
-      <div class="field"><label>Código da sala</label><input id="joinCode" required placeholder="Ex.: A2B3C4" value="${escapeHTML(inviteCode.toUpperCase())}"></div>
-      <div class="field"><label>Senha da sala</label><input id="joinPassword" type="password" required placeholder="Digite a senha"></div>
-      <button class="primary">Entrar na sala</button>
+  document.getElementById('modalTitle').textContent =
+    type === 'create' ? 'Criar nova sala' : 'Entrar em uma sala';
+
+  const content = document.getElementById('modalContent');
+
+  if(type === 'create'){
+    content.innerHTML = `<form id="roomForm">
+      <div class="field">
+        <label>Nome da sala</label>
+        <input id="newRoomName" required placeholder="Ex.: Compras de casa">
+      </div>
+      <div class="field">
+        <label>Senha da sala</label>
+        <input id="newRoomPassword" type="password" required placeholder="Crie uma senha">
+      </div>
+      <button class="primary">Criar sala</button>
     </form>`;
-    document.getElementById('roomForm').onsubmit=createRoom;
+
+    document.getElementById('roomForm').onsubmit = createRoom;
+
   }else{
-    content.innerHTML=`<form id="joinForm">
-      <div class="field"><label>Código da sala</label><input id="joinCode" required placeholder="Ex.: A2B3C4"></div>
-      <div class="field"><label>Senha da sala</label><input id="joinPassword" type="password" required placeholder="Digite a senha"></div>
+    const inviteCode = new URLSearchParams(window.location.search).get('sala') || '';
+
+    content.innerHTML = `<form id="joinForm">
+      <div class="field">
+        <label>Código da sala</label>
+        <input id="joinCode" required placeholder="Código da sala" value="${escapeHTML(inviteCode.toUpperCase())}">
+      </div>
+      <div class="field">
+        <label>Senha da sala</label>
+        <input id="joinPassword" type="password" required placeholder="Digite a senha">
+      </div>
       <button class="primary">Entrar na sala</button>
     </form>`;
-    document.getElementById('joinForm').onsubmit=joinRoom;
+
+    document.getElementById('joinForm').onsubmit = joinRoom;
+
+    if(inviteCode){
+      document.getElementById('joinPassword').focus();
+    }
   }
+
   document.getElementById('overlay').classList.remove('hidden');
 }
+
 function closeModal(){document.getElementById('overlay').classList.add('hidden');}
 function overlayClick(event){if(event.target.id==='overlay')closeModal();}
 
