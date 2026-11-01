@@ -149,7 +149,18 @@ footer{text-align:center;color:#9aa39a;font-size:11px;padding:35px 0 15px}
 </section>
 <section class="add-box">
   <h3>＋ Adicionar produto</h3>
-  <form id="productForm" class="add-fields">
+  
+<form id="productForm" class="add-fields">
+  <input id="productName" placeholder="Nome do produto" required maxlength="100">
+  <input id="productQty" type="number" min="0.01" step="any" value="1" placeholder="Qtd.">
+  <input id="productUnit" placeholder="Unidade" value="un.">
+  <select id="productPriceMode" style="grid-column:1/-1;width:100%;padding:13px;border:1px solid #dce3da;border-radius:11px;background:white;">
+    <option value="total">Preço total da quantidade</option>
+    <option value="unit">Preço por unidade (kg, litro, un.)</option>
+  </select>
+  <button class="primary" type="submit">Adicionar à lista</button>
+</form>
+
     <input id="productName" placeholder="Nome do produto" required maxlength="100">
     <input id="productQty" type="number" min="0.01" step="any" value="1" placeholder="Qtd.">
     <input id="productUnit" placeholder="Unidade" value="un.">
@@ -191,6 +202,16 @@ let invitePromptShown = false;
 function money(value){
   return Number(value||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 }
+  
+function productTotal(p){
+  const price=Number(p.unit_price)||0;
+  const quantity=Number(p.quantity)||1;
+
+  return p.price_mode==='total'
+    ? price
+    : price*quantity;
+}
+
 function escapeHTML(value){
   return String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -292,7 +313,7 @@ function renderRooms(){
     return;
   }
   box.innerHTML=rooms.map(room=>{
-    const total=room.products.reduce((s,p)=>s+(Number(p.unit_price)||0)*(Number(p.quantity)||1),0);
+  const total=room.products.reduce((s,p)=>s+productTotal(p),0);
     return `<article class="room" onclick="openRoom('${room.id}')">
       <div class="room-top"><div class="room-icon">🛒</div><span class="count">${room.products.length} produtos</span></div>
       <h3>${escapeHTML(room.name)}</h3><div class="room-meta">Código: ${escapeHTML(room.invite_code)}</div>
@@ -420,30 +441,51 @@ function goHome(){
   if(realtimeChannel){db.removeChannel(realtimeChannel);realtimeChannel=null;}
   showScreen('home');loadRooms();
 }
+
 document.getElementById('productForm').addEventListener('submit',async event=>{
   event.preventDefault();
   if(!activeRoom)return;
+
   const name=document.getElementById('productName').value.trim();
   const quantity=Number(document.getElementById('productQty').value);
   const unit=document.getElementById('productUnit').value.trim()||'un.';
+  const priceMode=document.getElementById('productPriceMode').value;
+
   if(!name||quantity<=0)return;
+
   try{
     const {error}=await db.from('products').insert({
-      list_id:activeRoom.list.id,name,quantity,unit,unit_price:0,purchased:false,created_by:currentUser.id
+      list_id:activeRoom.list.id,
+      name,
+      quantity,
+      unit,
+      price_mode:priceMode,
+      unit_price:0,
+      purchased:false,
+      created_by:currentUser.id
     });
+
     if(error)throw error;
+
     event.target.reset();
     document.getElementById('productQty').value=1;
     document.getElementById('productUnit').value='un.';
-    await refreshProducts();await loadRooms();showToast('Produto adicionado!');
-  }catch(error){showToast(friendlyError(error));}
+    document.getElementById('productPriceMode').value='total';
+
+    await refreshProducts();
+    await loadRooms();
+    showToast('Produto adicionado!');
+  }catch(error){
+    showToast(friendlyError(error));
+  }
 });
+
 
 
 function renderProducts(){
   if(!activeRoom)return;
   const products=activeRoom.products||[];
-  const total=products.reduce((s,p)=>s+(Number(p.unit_price)||0)*(Number(p.quantity)||1),0);
+  const total=products.reduce((s,p)=>s+productTotal(p),0);
   const bought=products.filter(p=>p.purchased).length;
 
   document.getElementById('total').textContent=money(total);
@@ -484,6 +526,7 @@ function renderProducts(){
   loadPurchaseEstimate();
 }
 
+
 async function loadPurchaseEstimate(){
   if(!activeRoom)return;
 
@@ -498,7 +541,7 @@ async function loadPurchaseEstimate(){
   try{
     const {data,error}=await db
       .from('price_history')
-      .select('product_name,unit,unit_price,recorded_at')
+      .select('product_name,unit,unit_price,price_mode,recorded_at')
       .eq('room_id',roomId)
       .order('recorded_at',{ascending:false});
 
@@ -509,7 +552,8 @@ async function loadPurchaseEstimate(){
     const latestPrices=new Map();
 
     (data||[]).forEach(item=>{
-      const key=item.product_name.trim().toLowerCase()+'|'+item.unit.trim().toLowerCase();
+      const mode=item.price_mode||'unit';
+      const key=item.product_name.trim().toLowerCase()+'|'+item.unit.trim().toLowerCase()+'|'+mode;
 
       if(!latestPrices.has(key)){
         latestPrices.set(key,Number(item.unit_price));
@@ -521,11 +565,21 @@ async function loadPurchaseEstimate(){
     let missing=0;
 
     products.forEach(product=>{
-      const key=product.name.trim().toLowerCase()+'|'+product.unit.trim().toLowerCase();
-      const price=latestPrices.get(key);
+      const mode=product.price_mode||'unit';
+      const key=product.name.trim().toLowerCase()+'|'+product.unit.trim().toLowerCase()+'|'+mode;
 
-      if(price!==undefined && Number.isFinite(price)){
-        estimatedTotal+=price*(Number(product.quantity)||1);
+      const historicalPrice=latestPrices.get(key);
+      const currentPrice=Number(product.unit_price)||0;
+
+      const price=historicalPrice!==undefined
+        ? historicalPrice
+        : currentPrice;
+
+      if(Number.isFinite(price) && price>0){
+        estimatedTotal+=mode==='total'
+          ? price
+          : price*(Number(product.quantity)||1);
+
         found++;
       }else{
         missing++;
@@ -537,9 +591,9 @@ async function loadPurchaseEstimate(){
     if(found===0){
       detailsElement.textContent='Ainda não há preços registrados para estimar sua compra.';
     }else if(missing>0){
-      detailsElement.textContent=found+' produto(s) com histórico · '+missing+' sem histórico.';
+      detailsElement.textContent=found+' produto(s) com preço conhecido · '+missing+' sem preço.';
     }else{
-      detailsElement.textContent='Estimativa baseada no último preço registrado de todos os produtos.';
+      detailsElement.textContent='Estimativa baseada nos últimos preços conhecidos.';
     }
 
   }catch(error){
@@ -548,6 +602,8 @@ async function loadPurchaseEstimate(){
     console.error('Erro na estimativa:',error);
   }
 }
+
+
 
 
 async function showPriceHistory(id){
@@ -561,12 +617,15 @@ async function showPriceHistory(id){
   document.getElementById('overlay').classList.remove('hidden');
 
   try{
+    const priceMode=product.price_mode||'unit';
+
     const {data,error}=await db
       .from('price_history')
-      .select('unit_price,recorded_at')
+      .select('unit_price,recorded_at,price_mode')
       .eq('room_id',activeRoom.id)
       .eq('product_name',product.name)
       .eq('unit',product.unit)
+      .eq('price_mode',priceMode)
       .order('recorded_at',{ascending:false})
       .limit(20);
 
@@ -582,6 +641,10 @@ async function showPriceHistory(id){
     const previous=prices.length>1?prices[1]:null;
     const lowest=Math.min(...prices);
 
+    const priceDescription=priceMode==='total'
+      ? 'Preço total da quantidade'
+      : 'Preço por '+product.unit;
+
     let variation='Ainda sem comparação';
     let variationColor='#777';
 
@@ -592,8 +655,12 @@ async function showPriceHistory(id){
     }
 
     content.innerHTML=`
-      <div style="margin-bottom:16px;font-weight:600;">
+      <div style="margin-bottom:6px;font-weight:600;">
         ${escapeHTML(product.name)}
+      </div>
+
+      <div style="font-size:12px;color:#777;margin-bottom:16px;">
+        ${escapeHTML(priceDescription)}
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;">
@@ -636,26 +703,45 @@ async function showPriceHistory(id){
 }
 
 
+
 async function toggleBought(id,value){
   const {error}=await db.from('products').update({purchased:value}).eq('id',id);
   if(error)showToast(friendlyError(error));else await refreshProducts();
 }
+
 async function updatePrice(id,value){
   const p=activeRoom.products.find(x=>x.id===id);
   if(!p)return;
+
   const price=Math.max(0,Number(value)||0);
+
   try{
-    const {error}=await db.from('products').update({unit_price:price}).eq('id',id);
+    const {error}=await db.from('products')
+      .update({unit_price:price})
+      .eq('id',id);
+
     if(error)throw error;
+
     if(price>0){
       const {error:historyError}=await db.from('price_history').insert({
-        room_id:activeRoom.id,product_name:p.name,unit:p.unit,unit_price:price,recorded_by:currentUser.id
+        room_id:activeRoom.id,
+        product_name:p.name,
+        unit:p.unit,
+        unit_price:price,
+        price_mode:p.price_mode||'unit',
+        recorded_by:currentUser.id
       });
+
       if(historyError)throw historyError;
     }
-    await refreshProducts();await loadRooms();
-  }catch(error){showToast(friendlyError(error));}
+
+    await refreshProducts();
+    await loadRooms();
+  }catch(error){
+    showToast(friendlyError(error));
+  }
 }
+
 async function deleteProduct(id){
   if(!confirm('Deseja excluir este produto?'))return;
   const {error}=await db.from('products').delete().eq('id',id);
