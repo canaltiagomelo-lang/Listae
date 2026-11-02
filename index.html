@@ -641,26 +641,25 @@ select.innerHTML='<option value="">Carregando produtos...</option>';
 );
 
 frequentProducts=Array.from(uniqueProducts.values())
-  .filter(product=>{
+  .sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
+
+if(!frequentProducts.length){
+  select.innerHTML='<option value="">Nenhum produto anterior encontrado</option>';
+  return;
+}
+
+select.innerHTML='<option value="">Selecione um produto</option>'+
+  frequentProducts.map((product,index)=>{
     const key=product.name.trim().toLowerCase()+'|'+
       product.unit.trim().toLowerCase()+'|'+
       (product.price_mode||'total');
 
-    return !addedProducts.has(key);
-  })
-  .sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
+    const alreadyAdded=addedProducts.has(key);
 
-    if(!frequentProducts.length){
-      select.innerHTML='<option value="">Nenhum produto anterior encontrado</option>';
-      return;
-    }
+    return `<option value="${index}" ${alreadyAdded?'disabled style="color:#999;background:#eee;"':''}>${escapeHTML(product.name)}${alreadyAdded?' — Já adicionado':''}</option>`;
+  }).join('');
 
-    select.innerHTML='<option value="">Selecione um produto</option>'+
-      frequentProducts.map((product,index)=>
-        `<option value="${index}">${escapeHTML(product.name)}</option>`
-      ).join('');
-
-    select.onchange=fillFrequentProduct;
+select.onchange=fillFrequentProduct;
 
   }catch(error){
     select.innerHTML='<option value="">Erro ao carregar produtos</option>';
