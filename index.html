@@ -562,8 +562,9 @@ async function openRoom(id){
 
     showScreen('listScreen');
 
-    await refreshProducts();
-    subscribeRoom();
+await refreshProducts();
+await loadFrequentProducts();
+subscribeRoom();
 
   }catch(error){
     showToast(friendlyError(error));
