@@ -873,9 +873,19 @@ async function showPriceHistory(id){
 
 
 
+
 async function toggleBought(id,value){
-  const {error}=await db.from('products').update({purchased:value}).eq('id',id);
-  if(error)showToast(friendlyError(error));else await refreshProducts();
+  const {error}=await db
+    .from('products')
+    .update({purchased:value})
+    .eq('id',id);
+
+  if(error){
+    showToast(friendlyError(error));
+  }else{
+    await refreshProducts();
+    await loadPurchaseEstimate();
+  }
 }
 
 
