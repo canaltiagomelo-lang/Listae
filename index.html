@@ -1196,11 +1196,12 @@ function editProduct(id){
 }
   window.editProduct = editProduct;
   
+
 async function showPriceHistory(id){
   const product=activeRoom.products.find(p=>p.id===id);
   if(!product)return;
 
-  document.getElementById('modalTitle').textContent='Histórico de preços';
+  document.getElementById('modalTitle').textContent='Comparação de preços';
 
   const content=document.getElementById('modalContent');
   content.innerHTML='<div class="empty">Carregando histórico...</div>';
@@ -1211,41 +1212,48 @@ async function showPriceHistory(id){
 
     const {data,error}=await db
       .from('price_history')
-      .select('unit_price,recorded_at,price_mode')
+      .select('unit_price,recorded_at,price_mode,market_name')
       .eq('room_id',activeRoom.id)
       .eq('product_name',product.name)
       .eq('unit',product.unit)
       .eq('price_mode',priceMode)
-      .order('recorded_at',{ascending:false})
-      .limit(20);
+      .order('unit_price',{ascending:true})
+      .limit(50);
 
     if(error)throw error;
 
-    if(!data || !data.length){
+    if(!data||!data.length){
       content.innerHTML='<div class="empty">Ainda não existem preços registrados para este produto.</div>';
       return;
     }
 
     const prices=data.map(item=>Number(item.unit_price));
-    const latest=prices[0];
-    const previous=prices.length>1?prices[1]:null;
     const lowest=Math.min(...prices);
+    const latestData=[...data].sort((a,b)=>
+      new Date(b.recorded_at)-new Date(a.recorded_at)
+    );
+
+    const grouped={};
+
+    data.forEach(item=>{
+      const market=(item.market_name||'Não informado').trim();
+      if(!grouped[market]||Number(item.unit_price)<Number(grouped[market].unit_price)){
+        grouped[market]=item;
+      }
+    });
+
+    const marketPrices=Object.entries(grouped)
+      .map(([market,item])=>({market,price:Number(item.unit_price),date:item.recorded_at}))
+      .sort((a,b)=>a.price-b.price);
+
+    const bestMarket=marketPrices[0];
 
     const priceDescription=priceMode==='total'
       ? 'Preço total da quantidade'
       : 'Preço por '+product.unit;
 
-    let variation='Ainda sem comparação';
-    let variationColor='#777';
-
-    if(previous!==null && previous>0){
-      const percent=((latest-previous)/previous)*100;
-      variation=(percent>0?'+':'')+percent.toFixed(1).replace('.',',')+'%';
-      variationColor=percent>0?'#c0392b':percent<0?'#27834a':'#777';
-    }
-
     content.innerHTML=`
-      <div style="margin-bottom:6px;font-weight:600;">
+      <div style="margin-bottom:6px;font-weight:700;">
         ${escapeHTML(product.name)}
       </div>
 
@@ -1253,45 +1261,52 @@ async function showPriceHistory(id){
         ${escapeHTML(priceDescription)}
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;">
-        <div style="background:#f3f5f2;padding:12px;border-radius:10px;">
-          <div style="font-size:12px;color:#777;">Último preço</div>
-          <strong style="font-size:18px;">${money(latest)}</strong>
+      <div style="background:#eaf5e9;padding:14px;border-radius:12px;margin-bottom:16px;">
+        <div style="font-size:12px;color:#527b45;font-weight:700;">🏆 MENOR PREÇO REGISTRADO</div>
+        <div style="font-size:24px;font-weight:700;color:#245c35;margin-top:5px;">
+          ${money(bestMarket.price)}
         </div>
-
-        <div style="background:#f3f5f2;padding:12px;border-radius:10px;">
-          <div style="font-size:12px;color:#777;">Preço anterior</div>
-          <strong style="font-size:18px;">${previous!==null?money(previous):'—'}</strong>
-        </div>
-
-        <div style="background:#f3f5f2;padding:12px;border-radius:10px;">
-          <div style="font-size:12px;color:#777;">Variação</div>
-          <strong style="font-size:18px;color:${variationColor};">${variation}</strong>
-        </div>
-
-        <div style="background:#f3f5f2;padding:12px;border-radius:10px;">
-          <div style="font-size:12px;color:#777;">Menor preço</div>
-          <strong style="font-size:18px;">${money(lowest)}</strong>
+        <div style="font-size:13px;color:#527b45;">
+          ${escapeHTML(bestMarket.market)}
         </div>
       </div>
 
-      <div style="font-weight:600;margin-bottom:8px;">Registros anteriores</div>
+      <div style="font-weight:700;margin-bottom:10px;">Comparação entre mercados</div>
 
-      ${data.map(item=>`
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #e5e5e5;">
-          <span style="font-size:13px;color:#777;">
-            ${new Date(item.recorded_at).toLocaleDateString('pt-BR')}
-          </span>
+      ${marketPrices.map((item,index)=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;margin-bottom:7px;border-radius:10px;background:${index===0?'#edf5eb':'#f5f6f4'};">
+          <div>
+            <div style="font-weight:600;">${escapeHTML(item.market)}</div>
+            <div style="font-size:11px;color:#888;">
+              ${new Date(item.date).toLocaleDateString('pt-BR')}
+            </div>
+            ${index===0?'<div style="font-size:11px;color:#287344;font-weight:700;">MENOR PREÇO</div>':''}
+          </div>
+          <strong style="font-size:17px;">${money(item.price)}</strong>
+        </div>
+      `).join('')}
+
+      <div style="font-weight:700;margin:18px 0 8px;">Últimos registros</div>
+
+      ${latestData.map(item=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid #e5e5e5;">
+          <div>
+            <div style="font-size:13px;font-weight:600;">
+              ${escapeHTML(item.market_name||'Não informado')}
+            </div>
+            <div style="font-size:11px;color:#888;">
+              ${new Date(item.recorded_at).toLocaleDateString('pt-BR')}
+            </div>
+          </div>
           <strong>${money(item.unit_price)}</strong>
         </div>
       `).join('')}
     `;
   }catch(error){
-    content.innerHTML='<div class="empty">Não foi possível carregar o histórico.</div>';
+    content.innerHTML='<div class="empty">Não foi possível carregar a comparação.</div>';
     showToast(friendlyError(error));
   }
 }
-
 
 
 
@@ -1310,12 +1325,14 @@ async function toggleBought(id,value){
 }
 
 
+
 async function updatePrice(id,value){
   const p=activeRoom.products.find(x=>x.id===id);
   if(!p)return;
 
   const normalizedValue=String(value).trim().replace(',','.');
-const price=Math.max(0,Number(normalizedValue)||0);
+  const price=Math.max(0,Number(normalizedValue)||0);
+
   try{
     const {error}=await db.from('products')
       .update({unit_price:price})
@@ -1324,16 +1341,23 @@ const price=Math.max(0,Number(normalizedValue)||0);
     if(error)throw error;
 
     if(price>0){
-      const {error:historyError}=await db.from('price_history').insert({
-        room_id:activeRoom.id,
-        product_name:p.name,
-        unit:p.unit,
-        unit_price:price,
-        price_mode:p.price_mode||'unit',
-        recorded_by:currentUser.id
-      });
+      const marketName=prompt('Em qual mercado você encontrou esse preço?');
 
-      if(historyError)throw historyError;
+      if(marketName===null){
+        showToast('Preço atualizado, mas sem registro de mercado.');
+      }else{
+        const {error:historyError}=await db.from('price_history').insert({
+          room_id:activeRoom.id,
+          product_name:p.name,
+          unit:p.unit,
+          unit_price:price,
+          price_mode:p.price_mode||'unit',
+          market_name:marketName.trim()||'Não informado',
+          recorded_by:currentUser.id
+        });
+
+        if(historyError)throw historyError;
+      }
     }
 
     await refreshProducts();
@@ -1345,6 +1369,7 @@ const price=Math.max(0,Number(normalizedValue)||0);
     showToast(friendlyError(error));
   }
 }
+
 
 async function deleteProduct(id){
   if(!confirm('Deseja excluir este produto?'))return;
