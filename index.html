@@ -302,6 +302,7 @@ let currentUser = null;
 let rooms = [];
 let activeRoom = null;
 let frequentProducts = [];
+  let selectedMarketName = '';
 let toastTimer;
 let authMode = 'login';
 let realtimeChannel = null;
@@ -784,6 +785,7 @@ document.getElementById('productForm').addEventListener('submit',async function(
 
 
 
+
 function renderProducts(){
   if(!activeRoom)return;
 
@@ -825,34 +827,23 @@ function renderProducts(){
 
     <div style="background:#fff8e9;padding:16px;border-radius:12px;margin-bottom:14px;border:1px solid #f0dfb8;">
       <div style="font-size:13px;color:#8a6824;font-weight:700;margin-bottom:10px;">🎯 MEU LIMITE DE GASTOS</div>
-
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-weight:700;color:#8a6824;">R$</span>
-        <input
-          id="budgetLimit"
-          type="text"
-          inputmode="decimal"
+        <input id="budgetLimit" type="text" inputmode="decimal"
           placeholder="Quanto posso gastar?"
           value="${budget!==null && budget!==undefined ? Number(budget).toFixed(2).replace('.',',') : ''}"
           onchange="saveBudgetLimit(this.value)"
-          style="flex:1;min-width:0;padding:12px;border:1px solid #e5d6b2;border-radius:9px;font-size:16px;background:white;"
-        >
+          style="flex:1;min-width:0;padding:12px;border:1px solid #e5d6b2;border-radius:9px;font-size:16px;background:white;">
       </div>
-
       <div id="budgetStatus" style="margin-top:12px;font-size:14px;color:#735d32;">
-        ${budget!==null && budget!==undefined
-          ? 'Calculando seu orçamento...'
-          : 'Informe seu limite para acompanhar quanto sobra ou ultrapassa.'}
+        ${budget!==null && budget!==undefined ? 'Calculando seu orçamento...' : 'Informe seu limite para acompanhar quanto sobra ou ultrapassa.'}
       </div>
     </div>
 
-    <input
-      id="productSearch"
-      type="text"
+    <input id="productSearch" type="text"
       placeholder="🔎 Buscar produto na lista..."
       oninput="filterProducts()"
-      style="width:100%;box-sizing:border-box;padding:14px;margin-bottom:14px;border:1px solid #dce3da;border-radius:11px;font-size:15px;"
-    >
+      style="width:100%;box-sizing:border-box;padding:14px;margin-bottom:14px;border:1px solid #dce3da;border-radius:11px;">
 
     <div id="productList">
       ${sortedProducts.map(p=>`
@@ -864,25 +855,34 @@ function renderProducts(){
             <div class="product-detail">${p.quantity} ${escapeHTML(p.unit)} · Preço real</div>
 
             <div style="display:flex;gap:12px;flex-wrap:wrap;">
-              <button type="button" onclick="editProduct('${p.id}')" style="background:none;border:0;padding:5px 0;color:#245440;font-size:12px;cursor:pointer;">
-                ✏️ Editar produto
-              </button>
-
-              <button type="button" onclick="showPriceHistory('${p.id}')" style="background:none;border:0;padding:5px 0;color:#547c45;font-size:12px;cursor:pointer;">
-                Ver histórico de preços
-              </button>
+              <button type="button" onclick="editProduct('${p.id}')" style="background:none;border:0;padding:5px 0;color:#245440;font-size:12px;cursor:pointer;">✏️ Editar produto</button>
+              <button type="button" onclick="showPriceHistory('${p.id}')" style="background:none;border:0;padding:5px 0;color:#547c45;font-size:12px;cursor:pointer;">Ver histórico de preços</button>
             </div>
           </div>
 
-          <div class="product-price">
-            <input
-              type="text"
-              inputmode="decimal"
-              placeholder="0,00"
-              value="${p.unit_price !== null && p.unit_price !== undefined && p.unit_price !== '' ? Number(p.unit_price).toFixed(2).replace('.',',') : ''}"
-              onchange="updatePrice('${p.id}',this.value)"
-              style="width:100%;min-width:85px;text-align:right;padding-left:28px;"
-            >
+          <div style="grid-column:1/-1;width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+            <div>
+              <label style="display:block;font-size:11px;color:#777;margin-bottom:4px;">PREÇO (R$)</label>
+              <input id="price-${p.id}" type="text" inputmode="decimal"
+                placeholder="0,00"
+                value="${p.unit_price !== null && p.unit_price !== undefined && p.unit_price !== '' ? Number(p.unit_price).toFixed(2).replace('.',',') : ''}"
+                style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #dce3da;border-radius:9px;text-align:right;">
+            </div>
+
+            <div>
+              <label style="display:block;font-size:11px;color:#777;margin-bottom:4px;">MERCADO</label>
+              <input id="market-${p.id}" type="text"
+                placeholder="Nome do mercado"
+                value="${escapeHTML(selectedMarketName)}"
+                oninput="selectedMarketName=this.value"
+                style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #dce3da;border-radius:9px;">
+            </div>
+
+            <button type="button"
+              onclick="saveProductPrice('${p.id}')"
+              style="grid-column:1/-1;background:#245440;color:white;border:0;border-radius:9px;padding:11px;font-weight:600;cursor:pointer;">
+              💾 Salvar preço
+            </button>
           </div>
 
           <button class="delete-item" title="Excluir produto" onclick="deleteProduct('${p.id}')">×</button>
@@ -893,6 +893,24 @@ function renderProducts(){
 
   updateBudgetDisplay();
   loadPurchaseEstimate();
+}
+
+function saveProductPrice(id){
+  const price=document.getElementById('price-'+id).value;
+  const market=document.getElementById('market-'+id).value.trim();
+
+  if(!price.trim() || Number(price.replace(',','.'))<=0){
+    showToast('Informe um preço válido.');
+    return;
+  }
+
+  if(!market){
+    showToast('Informe o mercado.');
+    return;
+  }
+
+  selectedMarketName=market;
+  updatePrice(id,price,market);
 }
 
 async function saveBudgetLimit(value){
@@ -1326,12 +1344,18 @@ async function toggleBought(id,value){
 
 
 
-async function updatePrice(id,value){
+
+async function updatePrice(id,value,marketName){
   const p=activeRoom.products.find(x=>x.id===id);
   if(!p)return;
 
   const normalizedValue=String(value).trim().replace(',','.');
-  const price=Math.max(0,Number(normalizedValue)||0);
+  const price=Number(normalizedValue);
+
+  if(!Number.isFinite(price)||price<=0){
+    showToast('Informe um preço válido.');
+    return;
+  }
 
   try{
     const {error}=await db.from('products')
@@ -1340,31 +1364,23 @@ async function updatePrice(id,value){
 
     if(error)throw error;
 
-    if(price>0){
-      const marketName=prompt('Em qual mercado você encontrou esse preço?');
+    const {error:historyError}=await db.from('price_history').insert({
+      room_id:activeRoom.id,
+      product_name:p.name,
+      unit:p.unit,
+      unit_price:price,
+      price_mode:p.price_mode||'unit',
+      market_name:marketName.trim(),
+      recorded_by:currentUser.id
+    });
 
-      if(marketName===null){
-        showToast('Preço atualizado, mas sem registro de mercado.');
-      }else{
-        const {error:historyError}=await db.from('price_history').insert({
-          room_id:activeRoom.id,
-          product_name:p.name,
-          unit:p.unit,
-          unit_price:price,
-          price_mode:p.price_mode||'unit',
-          market_name:marketName.trim()||'Não informado',
-          recorded_by:currentUser.id
-        });
-
-        if(historyError)throw historyError;
-      }
-    }
+    if(historyError)throw historyError;
 
     await refreshProducts();
     await loadPurchaseEstimate();
     await loadRooms();
 
-    showToast('Preço real atualizado!');
+    showToast('Preço e mercado salvos!');
   }catch(error){
     showToast(friendlyError(error));
   }
