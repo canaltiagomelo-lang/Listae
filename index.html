@@ -615,11 +615,13 @@ function renderProducts(){
 
 
 
+
 async function loadPurchaseEstimate(){
   if(!activeRoom)return;
 
   const roomId=activeRoom.id;
   const products=[...(activeRoom.products||[])];
+  const listCreatedAt=activeRoom.list?.created_at;
 
   const totalElement=document.getElementById('estimateTotal');
   const detailsElement=document.getElementById('estimateDetails');
@@ -627,11 +629,17 @@ async function loadPurchaseEstimate(){
   if(!totalElement || !detailsElement)return;
 
   try{
-    const {data,error}=await db
+    let query=db
       .from('price_history')
       .select('product_name,unit,unit_price,price_mode,recorded_at')
       .eq('room_id',roomId)
       .order('recorded_at',{ascending:false});
+
+    if(listCreatedAt){
+      query=query.lt('recorded_at',listCreatedAt);
+    }
+
+    const {data,error}=await query;
 
     if(error)throw error;
 
@@ -695,7 +703,7 @@ async function loadPurchaseEstimate(){
     }else if(missing>0){
       detailsElement.textContent=found+' produto(s) com preço planejado · '+missing+' sem histórico.';
     }else{
-      detailsElement.textContent='Planejamento baseado nos últimos preços registrados.';
+      detailsElement.textContent='Planejamento baseado nos últimos preços anteriores a esta lista.';
     }
 
   }catch(error){
