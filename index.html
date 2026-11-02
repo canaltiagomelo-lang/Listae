@@ -946,6 +946,7 @@ async function saveBudgetLimit(value){
 }
 
 
+
 function updateBudgetDisplay(){
   const status=document.getElementById('budgetStatus');
   if(!status || !activeRoom || !activeRoom.list)return;
@@ -965,19 +966,23 @@ function updateBudgetDisplay(){
   const difference=budget-spent;
   const percentage=(spent/budget)*100;
   const barPercentage=Math.min(percentage,100);
-  const exceeded=percentage>100;
+
+  const exceeded=percentage>=100;
+  const warning=percentage>=80 && percentage<100;
+
+  const barColor=exceeded?'#d94b42':warning?'#e5a52e':'#4b9b65';
 
   status.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;">
       <strong style="font-size:14px;">Orçamento utilizado</strong>
-      <strong style="font-size:14px;">${percentage.toFixed(1).replace('.',',')}%</strong>
+      <strong style="font-size:14px;color:${barColor};">${percentage.toFixed(1).replace('.',',')}%</strong>
     </div>
 
     <div style="width:100%;height:13px;background:#e8e8df;border-radius:20px;overflow:hidden;">
       <div style="
         width:${barPercentage}%;
         height:100%;
-        background:${exceeded?'#d94b42':'#4b9b65'};
+        background:${barColor};
         border-radius:20px;
         transition:width .3s ease;
       "></div>
@@ -988,23 +993,32 @@ function updateBudgetDisplay(){
       <span>${money(budget)} de limite</span>
     </div>
 
-    ${difference>=0
+    ${exceeded
       ? `
-        <div style="font-weight:700;color:#287344;font-size:17px;margin-top:13px;">
-          Sobram ${money(difference)}
-        </div>
-        <div style="margin-top:4px;color:#527b5d;">
-          Você ainda pode gastar esse valor.
-        </div>
-      `
-      : `
         <div style="font-weight:700;color:#bd3d32;font-size:17px;margin-top:13px;">
-          Ultrapassou ${money(Math.abs(difference))}
+          ⚠️ Limite ultrapassado!
         </div>
         <div style="margin-top:4px;color:#a34b43;">
-          Você passou do limite definido.
+          Você passou ${money(Math.abs(difference))} do orçamento.
         </div>
       `
+      : warning
+        ? `
+          <div style="font-weight:700;color:#b27b16;font-size:16px;margin-top:13px;">
+            ⚠️ Atenção! Você já utilizou 80% do orçamento.
+          </div>
+          <div style="margin-top:4px;color:#8a6824;">
+            Restam ${money(difference)} para gastar.
+          </div>
+        `
+        : `
+          <div style="font-weight:700;color:#287344;font-size:17px;margin-top:13px;">
+            Sobram ${money(difference)}
+          </div>
+          <div style="margin-top:4px;color:#527b5d;">
+            Você ainda pode gastar esse valor.
+          </div>
+        `
     }
   `;
 }
