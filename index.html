@@ -325,12 +325,21 @@ function money(value){
 }
   
 function productTotal(p){
-  const price=Number(p.unit_price)||0;
-  const quantity=Number(p.quantity)||1;
+  const price = Number(p.unit_price) || 0;
+  const quantity = Number(p.quantity) || 1;
+  const discountValue = Number(p.discount_value) || 0;
 
-  return p.price_mode==='total'
+  const originalTotal = p.price_mode === 'total'
     ? price
-    : price*quantity;
+    : price * quantity;
+
+  const discountAmount = p.discount_type === 'percent'
+    ? originalTotal * discountValue / 100
+    : p.price_mode === 'total'
+      ? discountValue
+      : discountValue * quantity;
+
+  return Math.max(0, originalTotal - discountAmount);
 }
 
 function escapeHTML(value){
@@ -910,12 +919,31 @@ if (productSort === 'missing') {
           <div style="grid-column:1/-1;width:100%;min-width:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;">
 
             <div>
-              <label style="display:block;font-size:11px;color:#777;margin-bottom:4px;">PREÇO (R$)</label>
-              <input id="price-${p.id}" type="text" inputmode="decimal"
-                placeholder="0,00"
-                value="${p.unit_price !== null && p.unit_price !== undefined && p.unit_price !== '' ? Number(p.unit_price).toFixed(2).replace('.',',') : ''}"
-                style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #dce3da;border-radius:9px;text-align:right;">
-            </div>
+  <label style="display:block;font-size:11px;color:#777;margin-bottom:4px;">PREÇO ORIGINAL (R$)</label>
+  <input id="price-${p.id}" type="text" inputmode="decimal"
+    placeholder="0,00"
+    value="${p.unit_price !== null && p.unit_price !== undefined && p.unit_price !== '' ? Number(p.unit_price).toFixed(2).replace('.',',') : ''}"
+    style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #dce3da;border-radius:9px;text-align:right;">
+</div>
+
+<div style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+  <div>
+    <label style="display:block;font-size:11px;color:#777;margin-bottom:4px;">TIPO DE DESCONTO</label>
+    <select id="discount-type-${p.id}"
+      style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #dce3da;border-radius:9px;background:white;">
+      <option value="value" ${p.discount_type==='value'?'selected':''}>R$ (reais)</option>
+      <option value="percent" ${p.discount_type==='percent'?'selected':''}>% (porcentagem)</option>
+    </select>
+  </div>
+
+  <div>
+    <label style="display:block;font-size:11px;color:#777;margin-bottom:4px;">DESCONTO</label>
+    <input id="discount-value-${p.id}" type="text" inputmode="decimal"
+      placeholder="0,00"
+      value="${Number(p.discount_value||0).toFixed(2).replace('.',',')}"
+      style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #dce3da;border-radius:9px;text-align:right;">
+  </div>
+</div>
 
             <div>
               <label style="display:block;font-size:11px;color:#777;margin-bottom:4px;">MERCADO</label>
@@ -948,6 +976,13 @@ async function saveProductPrice(id){
   const price = document.getElementById('price-' + id).value;
   const market = document.getElementById('market-' + id).value.trim();
 
+  const discountType = document.getElementById('discount-type-' + id).value;
+  const discountValueText = document.getElementById('discount-value-' + id).value.trim();
+
+  const discountValue = discountValueText
+    ? Number(discountValueText.replace(',', '.'))
+    : 0;
+
   if (!price.trim() || Number(price.replace(',', '.')) <= 0) {
     showToast('Informe um preço válido.');
     return;
@@ -958,66 +993,49 @@ async function saveProductPrice(id){
     return;
   }
 
+  if (!Number.isFinite(discountValue) || discountValue < 0) {
+    showToast('Informe um desconto válido.');
+    return;
+  }
+
+  if (discountType === 'percent' && discountValue > 100) {
+    showToast('O desconto não pode passar de 100%.');
+    return;
+  }
+
+  const originalPrice = Number(price.replace(',', '.'));
+  const discountAmount = discountType === 'percent'
+    ? originalPrice * discountValue / 100
+    : discountValue;
+
+  if (discountAmount > originalPrice) {
+    showToast('O desconto não pode ser maior que o preço.');
+    return;
+  }
+
   selectedMarketName = market;
 
   try {
-    await updatePrice(id, price, market);
+    const p = activeRoom.products.find(x => x.id === id);
+
+    const { error } = await db.from('products')
+      .update({
+        unit_price: originalPrice,
+        discount_type: discountType,
+        discount_value: discountValue
+      })
+      .eq('id', id);
+
+    if (error) throw error;
+
+   await updatePrice(id, originalPrice, market, discountType, discountValue);
+
+   
   } catch (error) {
-    showToast('Erro ao salvar. Tente novamente.');
+    showToast(friendlyError(error));
     console.error(error);
   }
 }
-
-async function saveBudgetLimit(value){
-  if(!activeRoom || !activeRoom.list)return;
-
-  const input=document.getElementById('budgetLimit');
-  const cleanValue=value.trim().replace(',','.');
-
-  if(cleanValue==='' ){
-    try{
-      const {error}=await db
-        .from('shopping_lists')
-        .update({budget_limit:null})
-        .eq('id',activeRoom.list.id);
-
-      if(error)throw error;
-
-      activeRoom.list.budget_limit=null;
-      updateBudgetDisplay();
-      showToast('Limite de gastos removido.');
-    }catch(error){
-      showToast('Erro ao salvar limite: '+friendlyError(error));
-    }
-    return;
-  }
-
-  const limit=Number(cleanValue);
-
-  if(!Number.isFinite(limit)||limit<=0){
-    showToast('Informe um limite válido.');
-    input.value=activeRoom.list.budget_limit
-      ? Number(activeRoom.list.budget_limit).toFixed(2).replace('.',',')
-      : '';
-    return;
-  }
-
-  try{
-    const {error}=await db
-      .from('shopping_lists')
-      .update({budget_limit:limit})
-      .eq('id',activeRoom.list.id);
-
-    if(error)throw error;
-
-    activeRoom.list.budget_limit=limit;
-    updateBudgetDisplay();
-    showToast('Limite de gastos salvo!');
-  }catch(error){
-    showToast('Erro ao salvar limite: '+friendlyError(error));
-  }
-}
-
 
 
 function updateBudgetDisplay(){
@@ -1400,47 +1418,72 @@ async function toggleBought(id,value){
 
 
 
-async function updatePrice(id,value,marketName){
-  const p=activeRoom.products.find(x=>x.id===id);
-  if(!p)return;
+async function updatePrice(id, value, marketName, discountType, discountValue) {
+  const p = activeRoom.products.find(x => x.id === id);
+  if (!p) return;
 
-  const normalizedValue=String(value).trim().replace(',','.');
-  const price=Number(normalizedValue);
+  const price = Number(String(value).trim().replace(',', '.'));
+  const discount = Number(discountValue || 0);
 
-  if(!Number.isFinite(price)||price<=0){
+  if (!Number.isFinite(price) || price <= 0) {
     showToast('Informe um preço válido.');
     return;
   }
 
-  try{
-    const {error}=await db.from('products')
-      .update({unit_price:price})
-      .eq('id',id);
+  const discountAmount = discountType === 'percent'
+    ? price * discount / 100
+    : p.price_mode === 'total'
+      ? discount
+      : discount * (Number(p.quantity) || 1);
 
-    if(error)throw error;
+  if (
+    !Number.isFinite(discount) ||
+    discount < 0 ||
+    (discountType === 'percent' && discount > 100) ||
+    discountAmount > (p.price_mode === 'total' ? price : price * (Number(p.quantity) || 1))
+  ) {
+    showToast('Confira o valor do desconto.');
+    return;
+  }
 
-    const {error:historyError}=await db.from('price_history').insert({
-      room_id:activeRoom.id,
-      product_name:p.name,
-      unit:p.unit,
-      unit_price:price,
-      price_mode:p.price_mode||'unit',
-      market_name:marketName.trim(),
-      recorded_by:currentUser.id
+  const finalPrice = Math.max(0, price - (p.price_mode === 'total' ? discountAmount : discount));
+
+  try {
+    const { error } = await db.from('products')
+      .update({
+        unit_price: price,
+        discount_type: discountType,
+        discount_value: discount
+      })
+      .eq('id', id);
+
+    if (error) throw error;
+
+    const { error: historyError } = await db.from('price_history').insert({
+      room_id: activeRoom.id,
+      product_name: p.name,
+      unit: p.unit,
+      unit_price: price,
+      price_mode: p.price_mode || 'unit',
+      market_name: marketName.trim(),
+      discount_type: discountType,
+      discount_value: discount,
+      final_price: finalPrice,
+      recorded_by: currentUser.id
     });
 
-    if(historyError)throw historyError;
+    if (historyError) throw historyError;
 
     await refreshProducts();
     await loadPurchaseEstimate();
     await loadRooms();
 
-    showToast('Preço e mercado salvos!');
-  }catch(error){
+    showToast('✓ Preço, desconto e mercado salvos!');
+  } catch (error) {
     showToast(friendlyError(error));
+    console.error(error);
   }
 }
-
 
 async function deleteProduct(id){
   if(!confirm('Deseja excluir este produto?'))return;
