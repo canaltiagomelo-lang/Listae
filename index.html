@@ -333,11 +333,15 @@ function productTotal(p){
     ? price
     : price * quantity;
 
-  const discountAmount = p.discount_type === 'percent'
-    ? originalTotal * discountValue / 100
-    : p.price_mode === 'total'
+  let discountAmount = 0;
+
+  if (p.discount_type === 'percent') {
+    discountAmount = originalTotal * discountValue / 100;
+  } else if (p.discount_type === 'value') {
+    discountAmount = p.price_mode === 'total'
       ? discountValue
       : discountValue * quantity;
+  }
 
   return Math.max(0, originalTotal - discountAmount);
 }
@@ -983,7 +987,9 @@ async function saveProductPrice(id){
     ? Number(discountValueText.replace(',', '.'))
     : 0;
 
-  if (!price.trim() || Number(price.replace(',', '.')) <= 0) {
+  const originalPrice = Number(price.replace(',', '.'));
+
+  if (!price.trim() || !Number.isFinite(originalPrice) || originalPrice <= 0) {
     showToast('Informe um preço válido.');
     return;
   }
@@ -1003,41 +1009,22 @@ async function saveProductPrice(id){
     return;
   }
 
-  const originalPrice = Number(price.replace(',', '.'));
-  const discountAmount = discountType === 'percent'
-    ? originalPrice * discountValue / 100
-    : discountValue;
+  const quantity = Number(activeRoom.products.find(x => x.id === id)?.quantity) || 1;
+  const originalTotal = originalPrice * quantity;
 
-  if (discountAmount > originalPrice) {
-    showToast('O desconto não pode ser maior que o preço.');
+  const discountTotal = discountType === 'percent'
+    ? originalTotal * discountValue / 100
+    : discountValue * quantity;
+
+  if (discountTotal > originalTotal) {
+    showToast('O desconto não pode ser maior que o preço total.');
     return;
   }
 
   selectedMarketName = market;
 
-  try {
-    const p = activeRoom.products.find(x => x.id === id);
-
-    const { error } = await db.from('products')
-      .update({
-        unit_price: originalPrice,
-        discount_type: discountType,
-        discount_value: discountValue
-      })
-      .eq('id', id);
-
-    if (error) throw error;
-
-   await updatePrice(id, originalPrice, market, discountType, discountValue);
-
-   
-  } catch (error) {
-    showToast(friendlyError(error));
-    console.error(error);
-  }
+  await updatePrice(id, originalPrice, market, discountType, discountValue);
 }
-
-
 function updateBudgetDisplay(){
   const status=document.getElementById('budgetStatus');
   if(!status || !activeRoom || !activeRoom.list)return;
@@ -1424,29 +1411,35 @@ async function updatePrice(id, value, marketName, discountType, discountValue) {
 
   const price = Number(String(value).trim().replace(',', '.'));
   const discount = Number(discountValue || 0);
+  const quantity = Number(p.quantity) || 1;
+  const mode = p.price_mode || 'unit';
 
   if (!Number.isFinite(price) || price <= 0) {
     showToast('Informe um preço válido.');
     return;
   }
 
-  const discountAmount = discountType === 'percent'
-    ? price * discount / 100
-    : p.price_mode === 'total'
-      ? discount
-      : discount * (Number(p.quantity) || 1);
+  const originalTotal = mode === 'total' ? price : price * quantity;
+
+  let discountTotal = 0;
+
+  if (discountType === 'percent') {
+    discountTotal = originalTotal * discount / 100;
+  } else if (discountType === 'value') {
+    discountTotal = mode === 'total' ? discount : discount * quantity;
+  }
 
   if (
     !Number.isFinite(discount) ||
     discount < 0 ||
     (discountType === 'percent' && discount > 100) ||
-    discountAmount > (p.price_mode === 'total' ? price : price * (Number(p.quantity) || 1))
+    discountTotal > originalTotal
   ) {
     showToast('Confira o valor do desconto.');
     return;
   }
 
-  const finalPrice = Math.max(0, price - (p.price_mode === 'total' ? discountAmount : discount));
+  const finalPrice = originalTotal - discountTotal;
 
   try {
     const { error } = await db.from('products')
@@ -1464,7 +1457,7 @@ async function updatePrice(id, value, marketName, discountType, discountValue) {
       product_name: p.name,
       unit: p.unit,
       unit_price: price,
-      price_mode: p.price_mode || 'unit',
+      price_mode: mode,
       market_name: marketName.trim(),
       discount_type: discountType,
       discount_value: discount,
@@ -1484,7 +1477,6 @@ async function updatePrice(id, value, marketName, discountType, discountValue) {
     console.error(error);
   }
 }
-
 async function deleteProduct(id){
   if(!confirm('Deseja excluir este produto?'))return;
   const {error}=await db.from('products').delete().eq('id',id);
