@@ -632,8 +632,23 @@ select.innerHTML='<option value="">Carregando produtos...</option>';
       }
     });
 
-    frequentProducts=Array.from(uniqueProducts.values())
-      .sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
+    const addedProducts=new Set(
+  (activeRoom.products||[]).map(product=>
+    product.name.trim().toLowerCase()+'|'+
+    product.unit.trim().toLowerCase()+'|'+
+    (product.price_mode||'total')
+  )
+);
+
+frequentProducts=Array.from(uniqueProducts.values())
+  .filter(product=>{
+    const key=product.name.trim().toLowerCase()+'|'+
+      product.unit.trim().toLowerCase()+'|'+
+      (product.price_mode||'total');
+
+    return !addedProducts.has(key);
+  })
+  .sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
 
     if(!frequentProducts.length){
       select.innerHTML='<option value="">Nenhum produto anterior encontrado</option>';
