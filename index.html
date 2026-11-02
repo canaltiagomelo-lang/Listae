@@ -607,7 +607,7 @@ function renderProducts(){
   type="text"
   inputmode="decimal"
   placeholder="0,00"
-  value="${p.unit_price ? String(p.unit_price).replace('.',',') : ''}"
+value="${p.unit_price !== null && p.unit_price !== undefined && p.unit_price !== '' ? Number(p.unit_price).toFixed(2).replace('.',',') : ''}"
   onchange="updatePrice('${p.id}',this.value)"
   style="width:100%;min-width:85px;text-align:center;"
 >
