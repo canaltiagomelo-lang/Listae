@@ -603,8 +603,14 @@ function renderProducts(){
           </div>
         </div>
         <div class="product-price">
-          <input type="number" min="0" step="0.01" placeholder="R$ 0,00" value="${p.unit_price||''}" onchange="updatePrice('${p.id}',this.value)">
-        </div>
+         <input
+  type="text"
+  inputmode="decimal"
+  placeholder="0,00"
+  value="${p.unit_price ? String(p.unit_price).replace('.',',') : ''}"
+  onchange="updatePrice('${p.id}',this.value)"
+  style="width:100%;min-width:85px;text-align:center;"
+>
         <button class="delete-item" title="Excluir produto" onclick="deleteProduct('${p.id}')">×</button>
       </div>
     `).join('')}
