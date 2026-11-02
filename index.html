@@ -782,6 +782,7 @@ document.getElementById('productForm').addEventListener('submit',async function(
 
 
 
+
 function renderProducts(){
   if(!activeRoom)return;
 
@@ -801,6 +802,11 @@ function renderProducts(){
     return;
   }
 
+  const sortedProducts=[...products].sort((a,b)=>{
+    if(a.purchased!==b.purchased)return a.purchased?1:-1;
+    return a.name.localeCompare(b.name,'pt-BR');
+  });
+
   box.innerHTML=`
     <div id="purchaseEstimate" style="background:#edf4e9;padding:16px;border-radius:12px;margin-bottom:12px;">
       <div style="font-size:13px;color:#547c45;font-weight:600;">VALOR PLANEJADO</div>
@@ -814,42 +820,63 @@ function renderProducts(){
       <div style="font-size:12px;color:#426783;">${bought} de ${products.length} produtos comprados.</div>
     </div>
 
-    ${products.map(p=>`
-      <div class="product ${p.purchased?'bought':''}">
-        <input class="check" type="checkbox" ${p.purchased?'checked':''} onchange="toggleBought('${p.id}',this.checked)">
+    <input
+      id="productSearch"
+      type="text"
+      placeholder="🔎 Buscar produto na lista..."
+      oninput="filterProducts()"
+      style="width:100%;box-sizing:border-box;padding:14px;margin-bottom:14px;border:1px solid #dce3da;border-radius:11px;font-size:15px;"
+    >
 
-        <div class="product-info">
-          <div class="product-name">${escapeHTML(p.name)}</div>
-          <div class="product-detail">${p.quantity} ${escapeHTML(p.unit)} · Preço real</div>
+    <div id="productList">
+      ${sortedProducts.map(p=>`
+        <div class="product ${p.purchased?'bought':''}" data-search="${escapeHTML(p.name.toLowerCase())}">
+          <input class="check" type="checkbox" ${p.purchased?'checked':''} onchange="toggleBought('${p.id}',this.checked)">
 
-          <div style="display:flex;gap:12px;flex-wrap:wrap;">
-            <button type="button" onclick="editProduct('${p.id}')" style="background:none;border:0;padding:5px 0;color:#245440;font-size:12px;cursor:pointer;">
-              ✏️ Editar produto
-            </button>
+          <div class="product-info">
+            <div class="product-name">${escapeHTML(p.name)}</div>
+            <div class="product-detail">${p.quantity} ${escapeHTML(p.unit)} · Preço real</div>
 
-            <button type="button" onclick="showPriceHistory('${p.id}')" style="background:none;border:0;padding:5px 0;color:#547c45;font-size:12px;cursor:pointer;">
-              Ver histórico de preços
-            </button>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+              <button type="button" onclick="editProduct('${p.id}')" style="background:none;border:0;padding:5px 0;color:#245440;font-size:12px;cursor:pointer;">
+                ✏️ Editar produto
+              </button>
+
+              <button type="button" onclick="showPriceHistory('${p.id}')" style="background:none;border:0;padding:5px 0;color:#547c45;font-size:12px;cursor:pointer;">
+                Ver histórico de preços
+              </button>
+            </div>
           </div>
-        </div>
 
-        <div class="product-price">
-          <input
-            type="text"
-            inputmode="decimal"
-            placeholder="0,00"
-            value="${p.unit_price !== null && p.unit_price !== undefined && p.unit_price !== '' ? Number(p.unit_price).toFixed(2).replace('.',',') : ''}"
-            onchange="updatePrice('${p.id}',this.value)"
-            style="width:100%;min-width:85px;text-align:right;padding-left:28px;"
-          >
-        </div>
+          <div class="product-price">
+            <input
+              type="text"
+              inputmode="decimal"
+              placeholder="0,00"
+              value="${p.unit_price !== null && p.unit_price !== undefined && p.unit_price !== '' ? Number(p.unit_price).toFixed(2).replace('.',',') : ''}"
+              onchange="updatePrice('${p.id}',this.value)"
+              style="width:100%;min-width:85px;text-align:right;padding-left:28px;"
+            >
+          </div>
 
-        <button class="delete-item" title="Excluir produto" onclick="deleteProduct('${p.id}')">×</button>
-      </div>
-    `).join('')}
+          <button class="delete-item" title="Excluir produto" onclick="deleteProduct('${p.id}')">×</button>
+        </div>
+      `).join('')}
+    </div>
   `;
 
   loadPurchaseEstimate();
+}
+
+function filterProducts(){
+  const search=document.getElementById('productSearch').value
+    .trim()
+    .toLowerCase();
+
+  document.querySelectorAll('#productList .product').forEach(item=>{
+    const name=item.dataset.search||'';
+    item.style.display=name.includes(search)?'':'none';
+  });
 }
 
 
