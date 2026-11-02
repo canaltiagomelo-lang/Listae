@@ -945,6 +945,7 @@ async function saveBudgetLimit(value){
   }
 }
 
+
 function updateBudgetDisplay(){
   const status=document.getElementById('budgetStatus');
   if(!status || !activeRoom || !activeRoom.list)return;
@@ -962,29 +963,52 @@ function updateBudgetDisplay(){
   }
 
   const difference=budget-spent;
+  const percentage=(spent/budget)*100;
+  const barPercentage=Math.min(percentage,100);
+  const exceeded=percentage>100;
 
-  if(difference>=0){
-    status.innerHTML=`
-      <div style="font-weight:700;color:#287344;font-size:17px;">
-        Sobram ${money(difference)}
-      </div>
-      <div style="margin-top:4px;color:#527b5d;">
-        Você ainda pode gastar esse valor.
-      </div>
-    `;
-    status.style.color='#287344';
-  }else{
-    status.innerHTML=`
-      <div style="font-weight:700;color:#bd3d32;font-size:17px;">
-        Ultrapassou ${money(Math.abs(difference))}
-      </div>
-      <div style="margin-top:4px;color:#a34b43;">
-        Você passou do limite definido.
-      </div>
-    `;
-    status.style.color='#bd3d32';
-  }
+  status.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;">
+      <strong style="font-size:14px;">Orçamento utilizado</strong>
+      <strong style="font-size:14px;">${percentage.toFixed(1).replace('.',',')}%</strong>
+    </div>
+
+    <div style="width:100%;height:13px;background:#e8e8df;border-radius:20px;overflow:hidden;">
+      <div style="
+        width:${barPercentage}%;
+        height:100%;
+        background:${exceeded?'#d94b42':'#4b9b65'};
+        border-radius:20px;
+        transition:width .3s ease;
+      "></div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;margin-top:7px;font-size:12px;color:#735d32;">
+      <span>${money(spent)} gastos</span>
+      <span>${money(budget)} de limite</span>
+    </div>
+
+    ${difference>=0
+      ? `
+        <div style="font-weight:700;color:#287344;font-size:17px;margin-top:13px;">
+          Sobram ${money(difference)}
+        </div>
+        <div style="margin-top:4px;color:#527b5d;">
+          Você ainda pode gastar esse valor.
+        </div>
+      `
+      : `
+        <div style="font-weight:700;color:#bd3d32;font-size:17px;margin-top:13px;">
+          Ultrapassou ${money(Math.abs(difference))}
+        </div>
+        <div style="margin-top:4px;color:#a34b43;">
+          Você passou do limite definido.
+        </div>
+      `
+    }
+  `;
 }
+
 
 
 
