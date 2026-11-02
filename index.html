@@ -214,9 +214,19 @@ footer{text-align:center;color:#9aa39a;font-size:11px;padding:35px 0 15px}
   <h3>⭐ Produtos frequentes</h3>
 
   <div class="add-fields">
-    <select id="frequentProductSelect" style="grid-column:1/-1;width:100%;padding:13px;border:1px solid #dce3da;border-radius:11px;background:white;">
-      <option value="">Selecione um produto utilizado anteriormente</option>
-    </select>
+    <input
+  id="frequentProductSearch"
+  type="text"
+  placeholder="🔎 Buscar produto..."
+  autocomplete="off"
+  oninput="searchFrequentProducts()"
+  style="grid-column:1/-1;width:100%;padding:13px;border:1px solid #dce3da;border-radius:11px;background:white;"
+>
+
+<div
+  id="frequentProductResults"
+  style="grid-column:1/-1;width:100%;"
+></div>
 
     <input id="frequentProductQty" type="number" min="0.01" step="any" value="1" placeholder="Qtd.">
 
@@ -586,11 +596,13 @@ function goHome(){
   async function loadFrequentProducts(){
   if(!activeRoom)return;
 
-  const select=document.getElementById('frequentProductSelect');
-  if(!select)return;
+  const search=document.getElementById('frequentProductSearch');
+  const results=document.getElementById('frequentProductResults');
 
+  if(!search||!results)return;
 
-select.innerHTML='<option value="">Carregando produtos...</option>';
+  search.value='';
+  results.innerHTML='';
 
   try{
     const {data:lists,error:listsError}=await db
@@ -600,12 +612,10 @@ select.innerHTML='<option value="">Carregando produtos...</option>';
 
     if(listsError)throw listsError;
 
-    const previousListIds=(lists||[])
-  .map(list=>list.id);
+    const previousListIds=(lists||[]).map(list=>list.id);
 
     if(!previousListIds.length){
       frequentProducts=[];
-      select.innerHTML='<option value="">Ainda não há produtos de compras anteriores</option>';
       return;
     }
 
@@ -632,67 +642,127 @@ select.innerHTML='<option value="">Carregando produtos...</option>';
       }
     });
 
-    const addedProducts=new Set(
-  (activeRoom.products||[]).map(product=>
-    product.name.trim().toLowerCase()+'|'+
-    product.unit.trim().toLowerCase()+'|'+
-    (product.price_mode||'total')
-  )
-);
-
-frequentProducts=Array.from(uniqueProducts.values())
-  .sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
-
-if(!frequentProducts.length){
-  select.innerHTML='<option value="">Nenhum produto anterior encontrado</option>';
-  return;
-}
-
-select.innerHTML='<option value="">Selecione um produto</option>'+
-  frequentProducts.map((product,index)=>{
-    const key=product.name.trim().toLowerCase()+'|'+
-      product.unit.trim().toLowerCase()+'|'+
-      (product.price_mode||'total');
-
-    const alreadyAdded=addedProducts.has(key);
-
-    return `<option value="${index}" ${alreadyAdded?'disabled style="color:#999;background:#eee;"':''}>${escapeHTML(product.name)}${alreadyAdded?' — Já adicionado':''}</option>`;
-  }).join('');
-
-select.onchange=fillFrequentProduct;
+    frequentProducts=Array.from(uniqueProducts.values())
+      .sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
 
   }catch(error){
-    select.innerHTML='<option value="">Erro ao carregar produtos</option>';
     showToast(friendlyError(error));
   }
 }
 
-function fillFrequentProduct(){
-  const index=document.getElementById('frequentProductSelect').value;
-  if(index==='')return;
+  function searchFrequentProducts(){
+  const input=document.getElementById('frequentProductSearch');
+  const results=document.getElementById('frequentProductResults');
 
+  if(!input||!results)return;
+
+  const search=input.value.trim().toLowerCase();
+
+  if(!search){
+    results.innerHTML='';
+    return;
+  }
+
+  const addedProducts=new Set(
+    (activeRoom.products||[]).map(product=>
+      product.name.trim().toLowerCase()
+    )
+  );
+
+  const matches=frequentProducts.filter(product=>
+    product.name.toLowerCase().includes(search)
+  );
+
+  if(!matches.length){
+    results.innerHTML='<p style="padding:12px;color:#888;">Nenhum produto encontrado.</p>';
+    return;
+  }
+
+  results.innerHTML=matches.map(product=>{
+    const index=frequentProducts.indexOf(product);
+    const alreadyAdded=addedProducts.has(product.name.trim().toLowerCase());
+
+    return `
+      <button
+        type="button"
+        ${alreadyAdded?'disabled':''}
+        onclick="fillFrequentProduct(${index})"
+        style="
+          width:100%;
+          padding:13px;
+          border:0;
+          border-bottom:1px solid #e5e9e3;
+          background:${alreadyAdded?'#f1f1f1':'white'};
+          color:${alreadyAdded?'#999':'#17372d'};
+          opacity:${alreadyAdded?'.55':'1'};
+          display:flex;
+          justify-content:space-between;
+          cursor:${alreadyAdded?'not-allowed':'pointer'};
+          text-align:left;
+        "
+      >
+        <strong>${escapeHTML(product.name)}</strong>
+        <span>${alreadyAdded?'Já adicionado':'Selecionar +'}</span>
+      </button>
+    `;
+  }).join('');
+}
+function fillFrequentProduct(index){
   const product=frequentProducts[Number(index)];
   if(!product)return;
 
+  const alreadyAdded=(activeRoom.products||[]).some(p=>
+    p.name.trim().toLowerCase()===product.name.trim().toLowerCase()
+  );
+
+  if(alreadyAdded){
+    showToast('Esse produto já foi adicionado à lista.');
+    return;
+  }
+
   document.getElementById('frequentProductQty').value=1;
   document.getElementById('frequentProductUnit').value=product.unit;
+
+  const search=document.getElementById('frequentProductSearch');
+  const results=document.getElementById('frequentProductResults');
+
+  search.value=product.name;
+  results.innerHTML=`
+    <div style="padding:12px;color:#527b35;">
+      ✓ ${escapeHTML(product.name)} selecionado
+    </div>
+  `;
 }
 
 async function addFrequentProduct(){
   if(!activeRoom)return;
 
-  const index=document.getElementById('frequentProductSelect').value;
-  if(index===''){
-    showToast('Selecione um produto.');
+  const search=document.getElementById('frequentProductSearch');
+  const selectedName=search.value.trim().toLowerCase();
+
+  const product=frequentProducts.find(p=>
+    p.name.trim().toLowerCase()===selectedName
+  );
+
+  if(!product){
+    showToast('Escolha um produto nos resultados da busca.');
     return;
   }
 
-  const product=frequentProducts[Number(index)];
   const quantity=Number(document.getElementById('frequentProductQty').value);
   const unit=document.getElementById('frequentProductUnit').value.trim()||'un.';
 
-  if(!product || quantity<=0){
+  if(quantity<=0){
     showToast('Confira a quantidade.');
+    return;
+  }
+
+  const alreadyAdded=(activeRoom.products||[]).some(p=>
+    p.name.trim().toLowerCase()===product.name.trim().toLowerCase()
+  );
+
+  if(alreadyAdded){
+    showToast('Esse produto já está na lista.');
     return;
   }
 
@@ -710,57 +780,20 @@ async function addFrequentProduct(){
 
     if(error)throw error;
 
-    document.getElementById('frequentProductSelect').value='';
+    search.value='';
+    document.getElementById('frequentProductResults').innerHTML='';
     document.getElementById('frequentProductQty').value=1;
     document.getElementById('frequentProductUnit').value='un.';
 
-   await refreshProducts();
-await loadFrequentProducts();
-subscribeRoom();
+    await refreshProducts();
+    await loadFrequentProducts();
+    subscribeRoom();
 
     showToast('Produto frequente adicionado!');
   }catch(error){
     showToast(friendlyError(error));
   }
 }
-document.getElementById('productForm').addEventListener('submit',async event=>{
-  event.preventDefault();
-  if(!activeRoom)return;
-
-  const name=document.getElementById('productName').value.trim();
-  const quantity=Number(document.getElementById('productQty').value);
-  const unit=document.getElementById('productUnit').value.trim()||'un.';
-  const priceMode=document.getElementById('productPriceMode').value;
-
-  if(!name||quantity<=0)return;
-
-  try{
-    const {error}=await db.from('products').insert({
-      list_id:activeRoom.list.id,
-      name,
-      quantity,
-      unit,
-      price_mode:priceMode,
-      unit_price:0,
-      purchased:false,
-      created_by:currentUser.id
-    });
-
-    if(error)throw error;
-
-    event.target.reset();
-    document.getElementById('productQty').value=1;
-    document.getElementById('productUnit').value='un.';
-    document.getElementById('productPriceMode').value='total';
-
-    await refreshProducts();
-    await loadRooms();
-    showToast('Produto adicionado!');
-  }catch(error){
-    showToast(friendlyError(error));
-  }
-});
-
 
 
 
