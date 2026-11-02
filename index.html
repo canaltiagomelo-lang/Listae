@@ -658,28 +658,31 @@ results.style.display='none';
   if(!input||!results)return;
 
   const search=input.value.trim().toLowerCase();
-    if(!search){
-  results.innerHTML='';
-  results.style.display='none';
-  return;
-}
 
-results.style.display='block';
+  // Não mostra nada enquanto o campo estiver vazio
+  if(search.length===0){
+    results.innerHTML='';
+    results.style.display='none';
+    return;
+  }
+
+  // Filtra somente os produtos que correspondem à pesquisa
+  const matches=frequentProducts.filter(product=>
+    product.name.toLowerCase().includes(search)
+  );
+
+  results.style.display='block';
+
+  if(!matches.length){
+    results.innerHTML='<p style="padding:12px;color:#888;">Nenhum produto encontrado.</p>';
+    return;
+  }
 
   const addedProducts=new Set(
     (activeRoom.products||[]).map(product=>
       product.name.trim().toLowerCase()
     )
   );
-
-  const matches=frequentProducts.filter(product=>
-    product.name.toLowerCase().includes(search)
-  );
-
-  if(!matches.length){
-    results.innerHTML='<p style="padding:12px;color:#888;">Nenhum produto encontrado.</p>';
-    return;
-  }
 
   results.innerHTML=matches.map(product=>{
     const index=frequentProducts.indexOf(product);
@@ -690,19 +693,7 @@ results.style.display='block';
         type="button"
         ${alreadyAdded?'disabled':''}
         onclick="fillFrequentProduct(${index})"
-        style="
-          width:100%;
-          padding:13px;
-          border:0;
-          border-bottom:1px solid #e5e9e3;
-          background:${alreadyAdded?'#f1f1f1':'white'};
-          color:${alreadyAdded?'#999':'#17372d'};
-          opacity:${alreadyAdded?'.55':'1'};
-          display:flex;
-          justify-content:space-between;
-          cursor:${alreadyAdded?'not-allowed':'pointer'};
-          text-align:left;
-        "
+        style="width:100%;padding:13px;border:0;border-bottom:1px solid #e5e9e3;background:white;color:#17372d;display:flex;justify-content:space-between;text-align:left;"
       >
         <strong>${escapeHTML(product.name)}</strong>
         <span>${alreadyAdded?'Já adicionado':'Selecionar +'}</span>
