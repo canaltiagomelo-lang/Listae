@@ -555,6 +555,7 @@ document.getElementById('productForm').addEventListener('submit',async event=>{
 
 
 
+
 function renderProducts(){
   if(!activeRoom)return;
 
@@ -590,27 +591,33 @@ function renderProducts(){
     ${products.map(p=>`
       <div class="product ${p.purchased?'bought':''}">
         <input class="check" type="checkbox" ${p.purchased?'checked':''} onchange="toggleBought('${p.id}',this.checked)">
+
         <div class="product-info">
           <div class="product-name">${escapeHTML(p.name)}</div>
           <div class="product-detail">${p.quantity} ${escapeHTML(p.unit)} · Preço real</div>
+
           <div style="display:flex;gap:12px;flex-wrap:wrap;">
             <button type="button" onclick="editProduct('${p.id}')" style="background:none;border:0;padding:5px 0;color:#245440;font-size:12px;cursor:pointer;">
               ✏️ Editar produto
             </button>
+
             <button type="button" onclick="showPriceHistory('${p.id}')" style="background:none;border:0;padding:5px 0;color:#547c45;font-size:12px;cursor:pointer;">
               Ver histórico de preços
             </button>
           </div>
         </div>
+
         <div class="product-price">
-         <input
-  type="text"
-  inputmode="decimal"
-  placeholder="0,00"
-value="${p.unit_price !== null && p.unit_price !== undefined && p.unit_price !== '' ? Number(p.unit_price).toFixed(2).replace('.',',') : ''}"
-  onchange="updatePrice('${p.id}',this.value)"
-  style="width:100%;min-width:85px;text-align:center;"
->
+          <input
+            type="text"
+            inputmode="decimal"
+            placeholder="0,00"
+            value="${p.unit_price !== null && p.unit_price !== undefined && p.unit_price !== '' ? Number(p.unit_price).toFixed(2).replace('.',',') : ''}"
+            onchange="updatePrice('${p.id}',this.value)"
+            style="width:100%;min-width:85px;text-align:center;"
+          >
+        </div>
+
         <button class="delete-item" title="Excluir produto" onclick="deleteProduct('${p.id}')">×</button>
       </div>
     `).join('')}
@@ -618,6 +625,7 @@ value="${p.unit_price !== null && p.unit_price !== undefined && p.unit_price !==
 
   loadPurchaseEstimate();
 }
+
 
 
 
