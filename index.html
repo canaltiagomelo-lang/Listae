@@ -870,19 +870,27 @@ function renderProducts(){
             </div>
 
             <div>
-              <label style="display:block;font-size:11px;color:#777;margin-bottom:4px;">MERCADO</label>
-              <input id="market-${p.id}" type="text"
-                placeholder="Nome do mercado"
-                value="${escapeHTML(selectedMarketName)}"
-                oninput="selectedMarketName=this.value"
-                style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #dce3da;border-radius:9px;">
-           <div style="grid-column:1/-1;display:flex;justify-content:flex-end;">
+             
+<div>
+  <label style="display:block;font-size:11px;color:#777;margin-bottom:4px;">MERCADO</label>
+  <input id="market-${p.id}" type="text"
+    placeholder="Nome do mercado"
+    value="${escapeHTML(selectedMarketName)}"
+    oninput="selectedMarketName=this.value"
+    style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #dce3da;border-radius:9px;">
+</div>
+
+<div style="grid-column:1/-1;display:flex;justify-content:flex-end;">
   <button type="button"
     onclick="saveProductPrice('${p.id}')"
     style="background:#245440;color:white;border:0;border-radius:7px;padding:7px 11px;font-size:11px;font-weight:600;cursor:pointer;">
     ✓ Salvar
   </button>
 </div>
+</div>
+</div>
+</div>
+
 
           <button class="delete-item" title="Excluir produto" onclick="deleteProduct('${p.id}')">×</button>
         </div>
