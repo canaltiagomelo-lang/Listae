@@ -694,6 +694,7 @@ function editProduct(id){
     }
   };
 }
+  window.editProduct = editProduct;
   
 async function showPriceHistory(id){
   const product=activeRoom.products.find(p=>p.id===id);
