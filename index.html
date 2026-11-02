@@ -907,8 +907,8 @@ async function updatePrice(id,value){
   const p=activeRoom.products.find(x=>x.id===id);
   if(!p)return;
 
-  const price=Math.max(0,Number(value)||0);
-
+  const normalizedValue=String(value).trim().replace(',','.');
+const price=Math.max(0,Number(normalizedValue)||0);
   try{
     const {error}=await db.from('products')
       .update({unit_price:price})
