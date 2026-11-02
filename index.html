@@ -860,7 +860,7 @@ function renderProducts(){
             </div>
           </div>
 
-          <div style="grid-column:1/-1;width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+        <div style="flex:0 0 100%;width:100%;min-width:0;box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:8px;">
             <div>
               <label style="display:block;font-size:11px;color:#777;margin-bottom:4px;">PREÇO (R$)</label>
               <input id="price-${p.id}" type="text" inputmode="decimal"
