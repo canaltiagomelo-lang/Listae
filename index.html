@@ -324,28 +324,20 @@ function money(value){
   return Number(value||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 }
   
-function productTotal(p){
+function productTotal(p) {
   const price = Number(p.unit_price) || 0;
-  const quantity = Number(p.quantity) || 1;
   const discountValue = Number(p.discount_value) || 0;
-
-  const originalTotal = p.price_mode === 'total'
-    ? price
-    : price * quantity;
 
   let discountAmount = 0;
 
   if (p.discount_type === 'percent') {
-    discountAmount = originalTotal * discountValue / 100;
+    discountAmount = price * discountValue / 100;
   } else if (p.discount_type === 'value') {
-    discountAmount = p.price_mode === 'total'
-      ? discountValue
-      : discountValue * quantity;
+    discountAmount = discountValue;
   }
 
-  return Math.max(0, originalTotal - discountAmount);
+  return Math.max(0, price - discountAmount);
 }
-
 function escapeHTML(value){
   return String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -976,20 +968,19 @@ if (productSort === 'missing') {
 }
 
 
-async function saveProductPrice(id){
-  const price = document.getElementById('price-' + id).value;
+async function saveProductPrice(id) {
+  const price = document.getElementById('price-' + id).value.trim();
   const market = document.getElementById('market-' + id).value.trim();
 
   const discountType = document.getElementById('discount-type-' + id).value;
   const discountValueText = document.getElementById('discount-value-' + id).value.trim();
 
+  const originalPrice = Number(price.replace(',', '.'));
   const discountValue = discountValueText
     ? Number(discountValueText.replace(',', '.'))
     : 0;
 
-  const originalPrice = Number(price.replace(',', '.'));
-
-  if (!price.trim() || !Number.isFinite(originalPrice) || originalPrice <= 0) {
+  if (!price || !Number.isFinite(originalPrice) || originalPrice <= 0) {
     showToast('Informe um preço válido.');
     return;
   }
@@ -1009,14 +1000,11 @@ async function saveProductPrice(id){
     return;
   }
 
-  const quantity = Number(activeRoom.products.find(x => x.id === id)?.quantity) || 1;
-  const originalTotal = originalPrice * quantity;
-
   const discountTotal = discountType === 'percent'
-    ? originalTotal * discountValue / 100
-    : discountValue * quantity;
+    ? originalPrice * discountValue / 100
+    : discountValue;
 
-  if (discountTotal > originalTotal) {
+  if (discountTotal > originalPrice) {
     showToast('O desconto não pode ser maior que o preço total.');
     return;
   }
@@ -1025,82 +1013,6 @@ async function saveProductPrice(id){
 
   await updatePrice(id, originalPrice, market, discountType, discountValue);
 }
-function updateBudgetDisplay(){
-  const status=document.getElementById('budgetStatus');
-  if(!status || !activeRoom || !activeRoom.list)return;
-
-  const budget=Number(activeRoom.list.budget_limit);
-  const products=activeRoom.products||[];
-  const spent=products
-    .filter(p=>p.purchased)
-    .reduce((sum,p)=>sum+productTotal(p),0);
-
-  if(!Number.isFinite(budget)||budget<=0){
-    status.innerHTML='Informe seu limite para acompanhar quanto sobra ou ultrapassa.';
-    status.style.color='#735d32';
-    return;
-  }
-
-  const difference=budget-spent;
-  const percentage=(spent/budget)*100;
-  const barPercentage=Math.min(percentage,100);
-
-  const exceeded=percentage>=100;
-  const warning=percentage>=80 && percentage<100;
-
-  const barColor=exceeded?'#d94b42':warning?'#e5a52e':'#4b9b65';
-
-  status.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;">
-      <strong style="font-size:14px;">Orçamento utilizado</strong>
-      <strong style="font-size:14px;color:${barColor};">${percentage.toFixed(1).replace('.',',')}%</strong>
-    </div>
-
-    <div style="width:100%;height:13px;background:#e8e8df;border-radius:20px;overflow:hidden;">
-      <div style="
-        width:${barPercentage}%;
-        height:100%;
-        background:${barColor};
-        border-radius:20px;
-        transition:width .3s ease;
-      "></div>
-    </div>
-
-    <div style="display:flex;justify-content:space-between;margin-top:7px;font-size:12px;color:#735d32;">
-      <span>${money(spent)} gastos</span>
-      <span>${money(budget)} de limite</span>
-    </div>
-
-    ${exceeded
-      ? `
-        <div style="font-weight:700;color:#bd3d32;font-size:17px;margin-top:13px;">
-          ⚠️ Limite ultrapassado!
-        </div>
-        <div style="margin-top:4px;color:#a34b43;">
-          Você passou ${money(Math.abs(difference))} do orçamento.
-        </div>
-      `
-      : warning
-        ? `
-          <div style="font-weight:700;color:#b27b16;font-size:16px;margin-top:13px;">
-            ⚠️ Atenção! Você já utilizou 80% do orçamento.
-          </div>
-          <div style="margin-top:4px;color:#8a6824;">
-            Restam ${money(difference)} para gastar.
-          </div>
-        `
-        : `
-          <div style="font-weight:700;color:#287344;font-size:17px;margin-top:13px;">
-            Sobram ${money(difference)}
-          </div>
-          <div style="margin-top:4px;color:#527b5d;">
-            Você ainda pode gastar esse valor.
-          </div>
-        `
-    }
-  `;
-}
-
 
 
 
@@ -1411,40 +1323,33 @@ async function updatePrice(id, value, marketName, discountType, discountValue) {
 
   const price = Number(String(value).trim().replace(',', '.'));
   const discount = Number(discountValue || 0);
-  const quantity = Number(p.quantity) || 1;
-  const mode = p.price_mode || 'unit';
 
   if (!Number.isFinite(price) || price <= 0) {
     showToast('Informe um preço válido.');
     return;
   }
 
-  const originalTotal = mode === 'total' ? price : price * quantity;
-
-  let discountTotal = 0;
-
-  if (discountType === 'percent') {
-    discountTotal = originalTotal * discount / 100;
-  } else if (discountType === 'value') {
-    discountTotal = mode === 'total' ? discount : discount * quantity;
-  }
+  const discountTotal = discountType === 'percent'
+    ? price * discount / 100
+    : discount;
 
   if (
     !Number.isFinite(discount) ||
     discount < 0 ||
     (discountType === 'percent' && discount > 100) ||
-    discountTotal > originalTotal
+    discountTotal > price
   ) {
     showToast('Confira o valor do desconto.');
     return;
   }
 
-  const finalPrice = originalTotal - discountTotal;
+  const finalPrice = price - discountTotal;
 
   try {
     const { error } = await db.from('products')
       .update({
         unit_price: price,
+        price_mode: 'total',
         discount_type: discountType,
         discount_value: discount
       })
@@ -1457,7 +1362,7 @@ async function updatePrice(id, value, marketName, discountType, discountValue) {
       product_name: p.name,
       unit: p.unit,
       unit_price: price,
-      price_mode: mode,
+      price_mode: 'total',
       market_name: marketName.trim(),
       discount_type: discountType,
       discount_value: discount,
@@ -1471,7 +1376,7 @@ async function updatePrice(id, value, marketName, discountType, discountValue) {
     await loadPurchaseEstimate();
     await loadRooms();
 
-    showToast('✓ Preço, desconto e mercado salvos!');
+    showToast('✓ Preço total e desconto salvos!');
   } catch (error) {
     showToast(friendlyError(error));
     console.error(error);
