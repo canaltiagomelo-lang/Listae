@@ -783,6 +783,7 @@ document.getElementById('productForm').addEventListener('submit',async function(
 
 
 
+
 function renderProducts(){
   if(!activeRoom)return;
 
@@ -807,6 +808,8 @@ function renderProducts(){
     return a.name.localeCompare(b.name,'pt-BR');
   });
 
+  const budget=activeRoom.list.budget_limit;
+
   box.innerHTML=`
     <div id="purchaseEstimate" style="background:#edf4e9;padding:16px;border-radius:12px;margin-bottom:12px;">
       <div style="font-size:13px;color:#547c45;font-weight:600;">VALOR PLANEJADO</div>
@@ -814,10 +817,33 @@ function renderProducts(){
       <div id="estimateDetails" style="font-size:12px;color:#547c45;">Calculando com os últimos preços registrados...</div>
     </div>
 
-    <div style="background:#e8f1f8;padding:16px;border-radius:12px;margin-bottom:14px;">
+    <div style="background:#e8f1f8;padding:16px;border-radius:12px;margin-bottom:12px;">
       <div style="font-size:13px;color:#426783;font-weight:600;">VALOR GASTO</div>
       <div id="spentTotal" style="font-size:25px;font-weight:700;color:#17372d;margin:5px 0;">${money(spentTotal)}</div>
       <div style="font-size:12px;color:#426783;">${bought} de ${products.length} produtos comprados.</div>
+    </div>
+
+    <div style="background:#fff8e9;padding:16px;border-radius:12px;margin-bottom:14px;border:1px solid #f0dfb8;">
+      <div style="font-size:13px;color:#8a6824;font-weight:700;margin-bottom:10px;">🎯 MEU LIMITE DE GASTOS</div>
+
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-weight:700;color:#8a6824;">R$</span>
+        <input
+          id="budgetLimit"
+          type="text"
+          inputmode="decimal"
+          placeholder="Quanto posso gastar?"
+          value="${budget!==null && budget!==undefined ? Number(budget).toFixed(2).replace('.',',') : ''}"
+          onchange="saveBudgetLimit(this.value)"
+          style="flex:1;min-width:0;padding:12px;border:1px solid #e5d6b2;border-radius:9px;font-size:16px;background:white;"
+        >
+      </div>
+
+      <div id="budgetStatus" style="margin-top:12px;font-size:14px;color:#735d32;">
+        ${budget!==null && budget!==undefined
+          ? 'Calculando seu orçamento...'
+          : 'Informe seu limite para acompanhar quanto sobra ou ultrapassa.'}
+      </div>
     </div>
 
     <input
@@ -865,19 +891,101 @@ function renderProducts(){
     </div>
   `;
 
+  updateBudgetDisplay();
   loadPurchaseEstimate();
 }
 
-function filterProducts(){
-  const search=document.getElementById('productSearch').value
-    .trim()
-    .toLowerCase();
+async function saveBudgetLimit(value){
+  if(!activeRoom || !activeRoom.list)return;
 
-  document.querySelectorAll('#productList .product').forEach(item=>{
-    const name=item.dataset.search||'';
-    item.style.display=name.includes(search)?'':'none';
-  });
+  const input=document.getElementById('budgetLimit');
+  const cleanValue=value.trim().replace(',','.');
+
+  if(cleanValue==='' ){
+    try{
+      const {error}=await db
+        .from('shopping_lists')
+        .update({budget_limit:null})
+        .eq('id',activeRoom.list.id);
+
+      if(error)throw error;
+
+      activeRoom.list.budget_limit=null;
+      updateBudgetDisplay();
+      showToast('Limite de gastos removido.');
+    }catch(error){
+      showToast('Erro ao salvar limite: '+friendlyError(error));
+    }
+    return;
+  }
+
+  const limit=Number(cleanValue);
+
+  if(!Number.isFinite(limit)||limit<=0){
+    showToast('Informe um limite válido.');
+    input.value=activeRoom.list.budget_limit
+      ? Number(activeRoom.list.budget_limit).toFixed(2).replace('.',',')
+      : '';
+    return;
+  }
+
+  try{
+    const {error}=await db
+      .from('shopping_lists')
+      .update({budget_limit:limit})
+      .eq('id',activeRoom.list.id);
+
+    if(error)throw error;
+
+    activeRoom.list.budget_limit=limit;
+    updateBudgetDisplay();
+    showToast('Limite de gastos salvo!');
+  }catch(error){
+    showToast('Erro ao salvar limite: '+friendlyError(error));
+  }
 }
+
+function updateBudgetDisplay(){
+  const status=document.getElementById('budgetStatus');
+  if(!status || !activeRoom || !activeRoom.list)return;
+
+  const budget=Number(activeRoom.list.budget_limit);
+  const products=activeRoom.products||[];
+  const spent=products
+    .filter(p=>p.purchased)
+    .reduce((sum,p)=>sum+productTotal(p),0);
+
+  if(!Number.isFinite(budget)||budget<=0){
+    status.innerHTML='Informe seu limite para acompanhar quanto sobra ou ultrapassa.';
+    status.style.color='#735d32';
+    return;
+  }
+
+  const difference=budget-spent;
+
+  if(difference>=0){
+    status.innerHTML=`
+      <div style="font-weight:700;color:#287344;font-size:17px;">
+        Sobram ${money(difference)}
+      </div>
+      <div style="margin-top:4px;color:#527b5d;">
+        Você ainda pode gastar esse valor.
+      </div>
+    `;
+    status.style.color='#287344';
+  }else{
+    status.innerHTML=`
+      <div style="font-weight:700;color:#bd3d32;font-size:17px;">
+        Ultrapassou ${money(Math.abs(difference))}
+      </div>
+      <div style="margin-top:4px;color:#a34b43;">
+        Você passou do limite definido.
+      </div>
+    `;
+    status.style.color='#bd3d32';
+  }
+}
+
 
 
 
