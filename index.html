@@ -602,7 +602,8 @@ function goHome(){
   if(!search||!results)return;
 
   search.value='';
-  results.innerHTML='';
+results.innerHTML='';
+results.style.display='none';
 
   try{
     const {data:lists,error:listsError}=await db
@@ -657,11 +658,13 @@ function goHome(){
   if(!input||!results)return;
 
   const search=input.value.trim().toLowerCase();
+    if(!search){
+  results.innerHTML='';
+  results.style.display='none';
+  return;
+}
 
-  if(!search){
-    results.innerHTML='';
-    return;
-  }
+results.style.display='block';
 
   const addedProducts=new Set(
     (activeRoom.products||[]).map(product=>
