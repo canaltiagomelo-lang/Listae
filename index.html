@@ -601,8 +601,7 @@ select.innerHTML='<option value="">Carregando produtos...</option>';
     if(listsError)throw listsError;
 
     const previousListIds=(lists||[])
-      .map(list=>list.id)
-      .filter(id=>id!==activeRoom.list.id);
+  .map(list=>list.id);
 
     if(!previousListIds.length){
       frequentProducts=[];
