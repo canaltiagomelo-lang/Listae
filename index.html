@@ -87,14 +87,33 @@ footer{text-align:center;color:#9aa39a;font-size:11px;padding:35px 0 15px}
   font-weight:600;
 }
 
+.product-price{
+  position:relative;
+  width:100%;
+  min-width:0;
+}
+
+.product-price::before{
+  content:"R$";
+  position:absolute;
+  left:8px;
+  top:50%;
+  transform:translateY(-50%);
+  color:#7b887c;
+  font-size:12px;
+  pointer-events:none;
+}
+
 .product-price input{
   box-sizing:border-box;
   width:100%;
   min-width:0;
-  padding:10px 5px;
-  border:1px solid var(--line);
-  border-radius:9px;
+  text-align:right;
+  padding:9px 8px 9px 28px;
+  border:1px solid #dce3da;
+  border-radius:8px;
   font-size:14px;
+  font-weight:750;
 }
 
 .delete-item{
