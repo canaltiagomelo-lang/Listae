@@ -69,9 +69,10 @@ footer{text-align:center;color:#9aa39a;font-size:11px;padding:35px 0 15px}
 .add-fields{display:grid;grid-template-columns:2fr 1fr 1fr;gap:9px}
 .add-fields button{grid-column:1/-1}
 .items-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+
 .product{
   display:grid;
-  grid-template-columns:24px minmax(0,1fr) 95px 28px;
+  grid-template-columns:24px minmax(0,1fr) 28px;
   align-items:center;
   gap:10px;
   padding:15px 0;
@@ -83,33 +84,28 @@ footer{text-align:center;color:#9aa39a;font-size:11px;padding:35px 0 15px}
 }
 
 .product-name{
+  font-size:14px;
+  font-weight:700;
   overflow-wrap:anywhere;
-  font-weight:600;
+}
+
+.product-detail{
+  font-size:11px;
+  color:var(--muted);
+  margin-top:4px;
 }
 
 .product-price{
-  position:relative;
   width:100%;
   min-width:0;
-}
-
-.product-price::before{
-  content:"R$";
-  position:absolute;
-  left:8px;
-  top:50%;
-  transform:translateY(-50%);
-  color:#7b887c;
-  font-size:12px;
-  pointer-events:none;
 }
 
 .product-price input{
-  box-sizing:border-box;
   width:100%;
   min-width:0;
+  box-sizing:border-box;
   text-align:right;
-  padding:9px 8px 9px 28px;
+  padding:9px 8px;
   border:1px solid #dce3da;
   border-radius:8px;
   font-size:14px;
@@ -118,17 +114,32 @@ footer{text-align:center;color:#9aa39a;font-size:11px;padding:35px 0 15px}
 
 .delete-item{
   justify-self:center;
+  border:0;
+  background:none;
+  color:#b7bdb7;
+  font-size:17px;
+  padding:5px;
 }
-.product:last-child{border-bottom:0}
-.check{width:22px;height:22px;accent-color:#4c8852;flex-shrink:0}
-.product-info{min-width:0}
-.product-name{font-size:14px;font-weight:700;overflow-wrap:anywhere}
-.product-detail{font-size:11px;color:var(--muted);margin-top:4px}
-.product-price{width:100%;min-width:0}
-.product-price input{box-sizing:border-box;width:100%;min-width:0;text-align:center;padding:9px 4px;border:1px solid #dce3da;border-radius:8px;font-size:14px;font-weight:750}
-.bought .product-name{text-decoration:line-through;color:#929b91}
-.bought .product-info{opacity:.65}
-.delete-item{border:0;background:none;color:#b7bdb7;font-size:17px;padding:5px}
+
+.product:last-child{
+  border-bottom:0;
+}
+
+.check{
+  width:22px;
+  height:22px;
+  accent-color:#4c8852;
+}
+
+.bought .product-name{
+  text-decoration:line-through;
+  color:#929b91;
+}
+
+.bought .product-info{
+  opacity:.65;
+}
+
 .list-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}
 .list-tools button{flex:1;min-width:120px}
 .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#193b2e;color:white;padding:12px 19px;border-radius:12px;font-size:13px;z-index:30;box-shadow:0 5px 25px #0002;max-width:90%;text-align:center}
@@ -786,6 +797,7 @@ document.getElementById('productForm').addEventListener('submit',async function(
 
 
 
+
 function renderProducts(){
   if(!activeRoom)return;
 
@@ -848,51 +860,58 @@ function renderProducts(){
     <div id="productList">
       ${sortedProducts.map(p=>`
         <div class="product ${p.purchased?'bought':''}" data-search="${escapeHTML(p.name.toLowerCase())}">
-          <input class="check" type="checkbox" ${p.purchased?'checked':''} onchange="toggleBought('${p.id}',this.checked)">
+
+          <input class="check" type="checkbox"
+            ${p.purchased?'checked':''}
+            onchange="toggleBought('${p.id}',this.checked)">
 
           <div class="product-info">
             <div class="product-name">${escapeHTML(p.name)}</div>
             <div class="product-detail">${p.quantity} ${escapeHTML(p.unit)} · Preço real</div>
 
             <div style="display:flex;gap:12px;flex-wrap:wrap;">
-              <button type="button" onclick="editProduct('${p.id}')" style="background:none;border:0;padding:5px 0;color:#245440;font-size:12px;cursor:pointer;">✏️ Editar produto</button>
-              <button type="button" onclick="showPriceHistory('${p.id}')" style="background:none;border:0;padding:5px 0;color:#547c45;font-size:12px;cursor:pointer;">Ver histórico de preços</button>
+              <button type="button" onclick="editProduct('${p.id}')"
+                style="background:none;border:0;padding:5px 0;color:#245440;font-size:12px;cursor:pointer;">
+                ✏️ Editar produto
+              </button>
+
+              <button type="button" onclick="showPriceHistory('${p.id}')"
+                style="background:none;border:0;padding:5px 0;color:#547c45;font-size:12px;cursor:pointer;">
+                Ver histórico de preços
+              </button>
             </div>
           </div>
 
-        <div style="flex:0 0 100%;width:100%;min-width:0;box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:8px;">
+          <button class="delete-item" title="Excluir produto"
+            onclick="deleteProduct('${p.id}')">×</button>
+
+          <div style="grid-column:1/-1;width:100%;min-width:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;">
+
             <div>
               <label style="display:block;font-size:11px;color:#777;margin-bottom:4px;">PREÇO (R$)</label>
               <input id="price-${p.id}" type="text" inputmode="decimal"
                 placeholder="0,00"
                 value="${p.unit_price !== null && p.unit_price !== undefined && p.unit_price !== '' ? Number(p.unit_price).toFixed(2).replace('.',',') : ''}"
-                style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #dce3da;border-radius:9px;text-align:right;">
+                style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #dce3da;border-radius:9px;text-align:right;">
             </div>
 
             <div>
-             
-<div>
-  <label style="display:block;font-size:11px;color:#777;margin-bottom:4px;">MERCADO</label>
-  <input id="market-${p.id}" type="text"
-    placeholder="Nome do mercado"
-    value="${escapeHTML(selectedMarketName)}"
-    oninput="selectedMarketName=this.value"
-    style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #dce3da;border-radius:9px;">
-</div>
+              <label style="display:block;font-size:11px;color:#777;margin-bottom:4px;">MERCADO</label>
+              <input id="market-${p.id}" type="text"
+                placeholder="Nome do mercado"
+                value="${escapeHTML(selectedMarketName)}"
+                oninput="selectedMarketName=this.value"
+                style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #dce3da;border-radius:9px;">
+            </div>
 
-<div style="grid-column:1/-1;display:flex;justify-content:flex-end;">
-  <button type="button"
-    onclick="saveProductPrice('${p.id}')"
-    style="background:#245440;color:white;border:0;border-radius:7px;padding:7px 11px;font-size:11px;font-weight:600;cursor:pointer;">
-    ✓ Salvar
-  </button>
-</div>
-</div>
-</div>
-</div>
+            <div style="grid-column:1/-1;display:flex;justify-content:flex-end;">
+              <button type="button" onclick="saveProductPrice('${p.id}')"
+                style="background:#245440;color:white;border:0;border-radius:7px;padding:7px 11px;font-size:11px;font-weight:600;cursor:pointer;">
+                ✓ Salvar
+              </button>
+            </div>
 
-
-          <button class="delete-item" title="Excluir produto" onclick="deleteProduct('${p.id}')">×</button>
+          </div>
         </div>
       `).join('')}
     </div>
@@ -901,6 +920,7 @@ function renderProducts(){
   updateBudgetDisplay();
   loadPurchaseEstimate();
 }
+
 
 function saveProductPrice(id){
   const price=document.getElementById('price-'+id).value;
