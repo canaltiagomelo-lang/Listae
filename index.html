@@ -944,22 +944,28 @@ if (productSort === 'missing') {
 }
 
 
-function saveProductPrice(id){
-  const price=document.getElementById('price-'+id).value;
-  const market=document.getElementById('market-'+id).value.trim();
+async function saveProductPrice(id){
+  const price = document.getElementById('price-' + id).value;
+  const market = document.getElementById('market-' + id).value.trim();
 
-  if(!price.trim() || Number(price.replace(',','.'))<=0){
+  if (!price.trim() || Number(price.replace(',', '.')) <= 0) {
     showToast('Informe um preço válido.');
     return;
   }
 
-  if(!market){
-    showToast('Informe o mercado.');
+  if (!market) {
+    showToast('Informe o nome do mercado.');
     return;
   }
 
-  selectedMarketName=market;
-  updatePrice(id,price,market);
+  selectedMarketName = market;
+
+  try {
+    await updatePrice(id, price, market);
+  } catch (error) {
+    showToast('Erro ao salvar. Tente novamente.');
+    console.error(error);
+  }
 }
 
 async function saveBudgetLimit(value){
