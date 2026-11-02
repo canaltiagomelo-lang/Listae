@@ -729,72 +729,54 @@ function fillFrequentProduct(index){
 }
 
 
-async function addFrequentProduct(){
+
+document.getElementById('productForm').addEventListener('submit',async function(event){
+  event.preventDefault();
+
   if(!activeRoom || !activeRoom.list){
     showToast('Nenhuma lista ativa.');
     return;
   }
 
-  const search=document.getElementById('frequentProductSearch');
-  const selectedName=search.value.trim().toLowerCase();
+  const name=document.getElementById('productName').value.trim();
+  const quantity=Number(document.getElementById('productQty').value);
+  const unit=document.getElementById('productUnit').value.trim()||'un.';
+  const priceMode=document.getElementById('productPriceMode').value;
 
-  const product=frequentProducts.find(p=>
-    p.name.trim().toLowerCase()===selectedName
-  );
-
-  if(!product){
-    showToast('Escolha um produto nos resultados da busca.');
-    return;
-  }
-
-  const quantity=Number(document.getElementById('frequentProductQty').value);
-  const unit=document.getElementById('frequentProductUnit').value.trim()||'un.';
-
-  if(!Number.isFinite(quantity)||quantity<=0){
-    showToast('Confira a quantidade.');
-    return;
-  }
-
-  const alreadyAdded=(activeRoom.products||[]).some(p=>
-    p.name.trim().toLowerCase()===product.name.trim().toLowerCase()
-  );
-
-  if(alreadyAdded){
-    showToast('Esse produto já está na lista.');
+  if(!name || !Number.isFinite(quantity) || quantity<=0){
+    showToast('Confira os dados do produto.');
     return;
   }
 
   try{
-    const {data,error}=await db.from('products').insert({
+    const {error}=await db.from('products').insert({
       list_id:activeRoom.list.id,
-      name:product.name,
+      name,
       quantity,
       unit,
-      price_mode:product.price_mode,
+      price_mode:priceMode,
       unit_price:0,
       purchased:false,
       created_by:currentUser.id
-    }).select();
+    });
 
     if(error)throw error;
 
+    this.reset();
+    document.getElementById('productQty').value=1;
+    document.getElementById('productUnit').value='un.';
+    document.getElementById('productPriceMode').value='total';
+
     await refreshProducts();
-
-    search.value='';
-    document.getElementById('frequentProductResults').innerHTML='';
-    document.getElementById('frequentProductResults').style.display='none';
-    document.getElementById('frequentProductQty').value=1;
-    document.getElementById('frequentProductUnit').value='un.';
-
     await loadFrequentProducts();
-    subscribeRoom();
+    await loadRooms();
 
     showToast('Produto adicionado à lista!');
   }catch(error){
-    console.error('Erro ao adicionar produto frequente:',error);
+    console.error('Erro ao adicionar produto:',error);
     showToast('Erro ao salvar: '+friendlyError(error));
   }
-}
+});
 
 
 
