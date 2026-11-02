@@ -314,6 +314,7 @@ let rooms = [];
 let activeRoom = null;
 let frequentProducts = [];
   let selectedMarketName = '';
+  let productSort = 'manual';
 let toastTimer;
 let authMode = 'login';
 let realtimeChannel = null;
@@ -791,13 +792,10 @@ document.getElementById('productForm').addEventListener('submit',async function(
 });
 
 
-
-
-
-
-
-
-
+function changeProductSort(value) {
+  productSort = value;
+  renderProducts();
+}
 function renderProducts(){
   if(!activeRoom)return;
 
@@ -817,7 +815,25 @@ function renderProducts(){
     return;
   }
 
-  const sortedProducts = products;
+ let sortedProducts = [...products];
+
+if (productSort === 'alphabetical') {
+  sortedProducts.sort((a, b) =>
+    a.name.localeCompare(b.name, 'pt-BR')
+  );
+}
+
+if (productSort === 'price') {
+  sortedProducts.sort((a, b) =>
+    productTotal(a) - productTotal(b)
+  );
+}
+
+if (productSort === 'missing') {
+  sortedProducts.sort((a, b) =>
+    Number(a.purchased) - Number(b.purchased)
+  );
+}
 
   const budget=activeRoom.list.budget_limit;
 
@@ -848,7 +864,16 @@ function renderProducts(){
         ${budget!==null && budget!==undefined ? 'Calculando seu orçamento...' : 'Informe seu limite para acompanhar quanto sobra ou ultrapassa.'}
       </div>
     </div>
-
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;">
+  <span style="font-size:13px;font-weight:700;color:#17372d;">Organizar produtos</span>
+  <select id="productSort" onchange="changeProductSort(this.value)"
+    style="padding:10px;border:1px solid #dce3da;border-radius:9px;background:white;color:#17372d;font-size:13px;">
+    <option value="manual" ${productSort==='manual'?'selected':''}>↕ Ordem atual</option>
+    <option value="alphabetical" ${productSort==='alphabetical'?'selected':''}>A–Z</option>
+    <option value="price" ${productSort==='price'?'selected':''}>Menor preço</option>
+    <option value="missing" ${productSort==='missing'?'selected':''}>Faltantes primeiro</option>
+  </select>
+</div>
     <input id="productSearch" type="text"
       placeholder="🔎 Buscar produto na lista..."
       oninput="filterProducts()"
