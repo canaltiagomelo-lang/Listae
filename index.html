@@ -401,14 +401,33 @@ function openModal(type){
 function closeModal(){document.getElementById('overlay').classList.add('hidden');}
 function overlayClick(event){if(event.target.id==='overlay')closeModal();}
 
-async function ensureList(roomId){
-  const {data,error}=await db.from('shopping_lists').select('*').eq('room_id',roomId).limit(1).maybeSingle();
+async function ensureList(roomId, purchaseDate){
+  const {data,error}=await db
+    .from('shopping_lists')
+    .select('*')
+    .eq('room_id',roomId)
+    .eq('purchase_date',purchaseDate)
+    .maybeSingle();
+
   if(error)throw error;
   if(data)return data;
-  const {data:created,error:createError}=await db.from('shopping_lists').insert({
-    room_id:roomId,name:'Lista de compras',status:'open',created_by:currentUser.id
-  }).select().single();
+
+  const {data:created,error:createError}=await db
+    .from('shopping_lists')
+    .insert({
+      room_id:roomId,
+      name:'Lista de compras',
+      list_type:'current',
+      status:'open',
+      purchase_date:purchaseDate,
+      estimated_total:0,
+      created_by:currentUser.id
+    })
+    .select()
+    .single();
+
   if(createError)throw createError;
+
   return created;
 }
 async function createRoom(event){
@@ -419,7 +438,7 @@ async function createRoom(event){
     const {data,error}=await db.rpc('create_room',{p_name:name,p_password:password});
     if(error)throw error;
     const result=Array.isArray(data)?data[0]:data;
-    await ensureList(result.new_room_id);
+   await ensureList(result.new_room_id, new Date().toLocaleDateString('en-CA'));
     closeModal();await loadRooms();await openRoom(result.new_room_id);
     showToast('Sala criada com sucesso!');
   }catch(error){showToast(friendlyError(error));}
@@ -444,20 +463,43 @@ closeModal();await loadRooms();await openRoom(data);
 }
 async function openRoom(id){
   let room=rooms.find(r=>r.id===id);
+
   try{
     if(!room){
-      await loadRooms();room=rooms.find(r=>r.id===id);
+      await loadRooms();
+      room=rooms.find(r=>r.id===id);
     }
+
     if(!room)throw new Error('Sala não encontrada ou sem acesso.');
-    if(!room.list)room.list=await ensureList(id);
+
+    const dateInput=document.getElementById('purchaseDate');
+
+    if(!dateInput.value){
+      const today=new Date();
+      const year=today.getFullYear();
+      const month=String(today.getMonth()+1).padStart(2,'0');
+      const day=String(today.getDate()).padStart(2,'0');
+      dateInput.value=`${year}-${month}-${day}`;
+    }
+
+    const selectedDate=dateInput.value;
+
+    room.list=await ensureList(id,selectedDate);
+
     activeRoom=room;
+
     document.getElementById('roomTitle').textContent=room.name;
     document.getElementById('roomCode').textContent='CÓDIGO: '+room.invite_code;
     document.getElementById('deleteRoomButton').classList.toggle('hidden',room.created_by!==currentUser.id);
+
     showScreen('listScreen');
+
     await refreshProducts();
     subscribeRoom();
-  }catch(error){showToast(friendlyError(error));}
+
+  }catch(error){
+    showToast(friendlyError(error));
+  }
 }
 async function refreshProducts(){
   if(!activeRoom?.list)return;
