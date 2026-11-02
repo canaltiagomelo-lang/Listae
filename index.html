@@ -325,18 +325,7 @@ function money(value){
 }
   
 function productTotal(p) {
-  const price = Number(p.unit_price) || 0;
-  const discountValue = Number(p.discount_value) || 0;
-
-  let discountAmount = 0;
-
-  if (p.discount_type === 'percent') {
-    discountAmount = price * discountValue / 100;
-  } else if (p.discount_type === 'value') {
-    discountAmount = discountValue;
-  }
-
-  return Math.max(0, price - discountAmount);
+  return Number(p.unit_price) || 0;
 }
 function escapeHTML(value){
   return String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -922,15 +911,7 @@ if (productSort === 'missing') {
     style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #dce3da;border-radius:9px;text-align:right;">
 </div>
 
-<div style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-  <div>
-    <label style="display:block;font-size:11px;color:#777;margin-bottom:4px;">TIPO DE DESCONTO</label>
-    <select id="discount-type-${p.id}"
-      style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #dce3da;border-radius:9px;background:white;">
-      <option value="value" ${p.discount_type==='value'?'selected':''}>R$ (reais)</option>
-      <option value="percent" ${p.discount_type==='percent'?'selected':''}>% (porcentagem)</option>
-    </select>
-  </div>
+
 
   <div>
     <label style="display:block;font-size:11px;color:#777;margin-bottom:4px;">DESCONTO</label>
@@ -972,13 +953,7 @@ async function saveProductPrice(id) {
   const price = document.getElementById('price-' + id).value.trim();
   const market = document.getElementById('market-' + id).value.trim();
 
-  const discountType = document.getElementById('discount-type-' + id).value;
-  const discountValueText = document.getElementById('discount-value-' + id).value.trim();
-
   const originalPrice = Number(price.replace(',', '.'));
-  const discountValue = discountValueText
-    ? Number(discountValueText.replace(',', '.'))
-    : 0;
 
   if (!price || !Number.isFinite(originalPrice) || originalPrice <= 0) {
     showToast('Informe um preço válido.');
@@ -990,31 +965,10 @@ async function saveProductPrice(id) {
     return;
   }
 
-  if (!Number.isFinite(discountValue) || discountValue < 0) {
-    showToast('Informe um desconto válido.');
-    return;
-  }
-
-  if (discountType === 'percent' && discountValue > 100) {
-    showToast('O desconto não pode passar de 100%.');
-    return;
-  }
-
-  const discountTotal = discountType === 'percent'
-    ? originalPrice * discountValue / 100
-    : discountValue;
-
-  if (discountTotal > originalPrice) {
-    showToast('O desconto não pode ser maior que o preço total.');
-    return;
-  }
-
   selectedMarketName = market;
 
-  await updatePrice(id, originalPrice, market, discountType, discountValue);
+  await updatePrice(id, originalPrice, market);
 }
-
-
 
 
 
@@ -1317,41 +1271,24 @@ async function toggleBought(id,value){
 
 
 
-async function updatePrice(id, value, marketName, discountType, discountValue) {
+async function updatePrice(id, value, marketName) {
   const p = activeRoom.products.find(x => x.id === id);
   if (!p) return;
 
   const price = Number(String(value).trim().replace(',', '.'));
-  const discount = Number(discountValue || 0);
 
   if (!Number.isFinite(price) || price <= 0) {
     showToast('Informe um preço válido.');
     return;
   }
 
-  const discountTotal = discountType === 'percent'
-    ? price * discount / 100
-    : discount;
-
-  if (
-    !Number.isFinite(discount) ||
-    discount < 0 ||
-    (discountType === 'percent' && discount > 100) ||
-    discountTotal > price
-  ) {
-    showToast('Confira o valor do desconto.');
-    return;
-  }
-
-  const finalPrice = price - discountTotal;
-
   try {
     const { error } = await db.from('products')
       .update({
         unit_price: price,
         price_mode: 'total',
-        discount_type: discountType,
-        discount_value: discount
+        discount_type: null,
+        discount_value: 0
       })
       .eq('id', id);
 
@@ -1364,9 +1301,9 @@ async function updatePrice(id, value, marketName, discountType, discountValue) {
       unit_price: price,
       price_mode: 'total',
       market_name: marketName.trim(),
-      discount_type: discountType,
-      discount_value: discount,
-      final_price: finalPrice,
+      discount_type: null,
+      discount_value: 0,
+      final_price: price,
       recorded_by: currentUser.id
     });
 
@@ -1376,7 +1313,7 @@ async function updatePrice(id, value, marketName, discountType, discountValue) {
     await loadPurchaseEstimate();
     await loadRooms();
 
-    showToast('✓ Preço total e desconto salvos!');
+    showToast('✓ Preço e mercado salvos!');
   } catch (error) {
     showToast(friendlyError(error));
     console.error(error);
