@@ -963,6 +963,23 @@ if(inviteCode && !invitePromptShown){
   openModal('join');
 }
 }
+document.getElementById('purchaseDate').addEventListener('change', async function(){
+  if(!activeRoom || !this.value)return;
+
+  try{
+    const selectedDate=this.value;
+
+    activeRoom.list=await ensureList(activeRoom.id,selectedDate);
+
+    await refreshProducts();
+
+    subscribeRoom();
+
+    showToast('Lista da data carregada!');
+  }catch(error){
+    showToast(friendlyError(error));
+  }
+});
 db.auth.onAuthStateChange((event,session)=>{
   setTimeout(()=>handleSession(session),0);
 });
