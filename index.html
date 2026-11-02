@@ -605,6 +605,7 @@ function renderProducts(){
 }
 
 
+
 async function loadPurchaseEstimate(){
   if(!activeRoom)return;
 
@@ -625,7 +626,7 @@ async function loadPurchaseEstimate(){
 
     if(error)throw error;
 
-    if(!document.getElementById('estimateTotal') || !activeRoom || activeRoom.id!==roomId)return;
+    if(!activeRoom || activeRoom.id!==roomId)return;
 
     const latestPrices=new Map();
 
@@ -638,46 +639,60 @@ async function loadPurchaseEstimate(){
       }
     });
 
-    let estimatedTotal=0;
+    let plannedTotal=0;
     let found=0;
     let missing=0;
 
-    products.forEach(product=>{
+    for(const product of products){
       const mode=product.price_mode||'unit';
       const key=product.name.trim().toLowerCase()+'|'+product.unit.trim().toLowerCase()+'|'+mode;
 
-      const historicalPrice=latestPrices.get(key);
-      const currentPrice=Number(product.unit_price)||0;
+      let plannedPrice=Number(product.planned_unit_price);
 
-      const price=historicalPrice!==undefined
-        ? historicalPrice
-        : currentPrice;
+      if(!Number.isFinite(plannedPrice) || plannedPrice<=0){
+        const historicalPrice=latestPrices.get(key);
 
-      if(Number.isFinite(price) && price>0){
-        estimatedTotal+=mode==='total'
-          ? price
-          : price*(Number(product.quantity)||1);
+        if(Number.isFinite(historicalPrice) && historicalPrice>0){
+          plannedPrice=historicalPrice;
+
+          const {error:updateError}=await db
+            .from('products')
+            .update({planned_unit_price:plannedPrice})
+            .eq('id',product.id);
+
+          if(updateError)throw updateError;
+
+          product.planned_unit_price=plannedPrice;
+        }
+      }
+
+      if(Number.isFinite(plannedPrice) && plannedPrice>0){
+        const quantity=Number(product.quantity)||1;
+
+        plannedTotal+=mode==='total'
+          ? plannedPrice
+          : plannedPrice*quantity;
 
         found++;
       }else{
         missing++;
       }
-    });
+    }
 
-    totalElement.textContent=money(estimatedTotal);
+    totalElement.textContent=money(plannedTotal);
 
     if(found===0){
-      detailsElement.textContent='Ainda não há preços registrados para estimar sua compra.';
+      detailsElement.textContent='Sem preços anteriores para planejar esta compra.';
     }else if(missing>0){
-      detailsElement.textContent=found+' produto(s) com preço conhecido · '+missing+' sem preço.';
+      detailsElement.textContent=found+' produto(s) com preço planejado · '+missing+' sem histórico.';
     }else{
-      detailsElement.textContent='Estimativa baseada nos últimos preços conhecidos.';
+      detailsElement.textContent='Planejamento baseado nos últimos preços registrados.';
     }
 
   }catch(error){
     totalElement.textContent='Indisponível';
-    detailsElement.textContent='Não foi possível consultar os preços anteriores.';
-    console.error('Erro na estimativa:',error);
+    detailsElement.textContent='Não foi possível calcular o planejamento.';
+    console.error('Erro no planejamento:',error);
   }
 }
 
