@@ -876,14 +876,13 @@ function renderProducts(){
                 value="${escapeHTML(selectedMarketName)}"
                 oninput="selectedMarketName=this.value"
                 style="width:100%;box-sizing:border-box;padding:11px;border:1px solid #dce3da;border-radius:9px;">
-            </div>
-
-            <button type="button"
-              onclick="saveProductPrice('${p.id}')"
-              style="grid-column:1/-1;background:#245440;color:white;border:0;border-radius:9px;padding:11px;font-weight:600;cursor:pointer;">
-              💾 Salvar preço
-            </button>
-          </div>
+           <div style="grid-column:1/-1;display:flex;justify-content:flex-end;">
+  <button type="button"
+    onclick="saveProductPrice('${p.id}')"
+    style="background:#245440;color:white;border:0;border-radius:7px;padding:7px 11px;font-size:11px;font-weight:600;cursor:pointer;">
+    ✓ Salvar
+  </button>
+</div>
 
           <button class="delete-item" title="Excluir produto" onclick="deleteProduct('${p.id}')">×</button>
         </div>
