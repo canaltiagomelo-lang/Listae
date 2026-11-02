@@ -589,7 +589,8 @@ function goHome(){
   const select=document.getElementById('frequentProductSelect');
   if(!select)return;
 
-  select.innerHTML='<option value="">Carregando produtos...</option>';
+  //select.innerHTML='<option value="">Carregando produtos...</option>';
+    select.innerHTML='<option value="">TESTE: função executada</option>';
 
   try{
     const {data:lists,error:listsError}=await db
